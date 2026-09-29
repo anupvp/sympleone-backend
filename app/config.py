@@ -30,6 +30,14 @@ class Settings(BaseSettings):
         default=None,
         validation_alias="AMAZON_DEFAULT_SELLER_CENTRAL_URL",
     )
+    amazon_oauth_state_ttl_minutes: int = Field(
+        default=10,
+        validation_alias="AMAZON_OAUTH_STATE_TTL_MINUTES",
+    )
+    amazon_oauth_success_redirect_url: str | None = Field(
+        default=None,
+        validation_alias="AMAZON_OAUTH_SUCCESS_REDIRECT_URL",
+    )
 
 
 settings = Settings()

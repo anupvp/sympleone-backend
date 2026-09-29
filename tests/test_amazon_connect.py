@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models import AmazonOAuthState, User, UserKind
-from app.services.amazon.oauth_service import OAUTH_STATE_TTL
+from app.services.amazon.oauth_service import oauth_state_ttl
 from tests.conftest import bearer_token
 
 INDIA_MARKETPLACE = "A21TJRUUN4KGV"
@@ -82,11 +82,14 @@ def test_oauth_state_stored_with_expiration(
     if expires_at.tzinfo is None:
         expires_at = expires_at.replace(tzinfo=UTC)
     assert expires_at > before
-    assert expires_at <= before + OAUTH_STATE_TTL + timedelta(seconds=5)
+    assert expires_at <= before + oauth_state_ttl() + timedelta(seconds=5)
 
 
 def test_oauth_state_uses_secure_token(client: TestClient, admin_user: User) -> None:
-    with patch("app.services.amazon.oauth_service.secrets.token_urlsafe", return_value="mock-state"):
+    with patch(
+        "app.services.amazon.oauth_service.generate_internal_oauth_state",
+        return_value="mock-state",
+    ):
         response = post_connect(client, headers=bearer_token(admin_user.id, UserKind.ADMIN))
     assert response.status_code == 200
     assert "state=mock-state" in response.json()["authorization_url"]

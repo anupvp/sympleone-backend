@@ -12,7 +12,6 @@ Per Amazon's website authorization workflow:
 See: https://developer-docs.amazon.com/sp-api/docs/website-authorization-workflow
 """
 
-import secrets
 from datetime import UTC, datetime, timedelta
 from urllib.parse import urlencode
 
@@ -21,6 +20,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models import AmazonOAuthState, User
+from app.services.amazon.oauth_state import generate_internal_oauth_state, oauth_state_expires_at
 
 AUTHORIZE_CONSENT_PATH = "/apps/authorize/consent"
 
@@ -29,7 +29,8 @@ MARKETPLACE_SELLER_CENTRAL_BASE: dict[str, str] = {
     "A21TJRUUN4KGV": "https://sellercentral.amazon.in",  # Amazon.in (India)
 }
 
-OAUTH_STATE_TTL = timedelta(minutes=10)
+def oauth_state_ttl() -> timedelta:
+    return timedelta(minutes=settings.amazon_oauth_state_ttl_minutes)
 
 
 class AmazonOAuthNotConfiguredError(Exception):
@@ -84,12 +85,12 @@ def create_oauth_state_record(
     seller_central_authorize_base(marketplace_id)
 
     now = datetime.now(UTC)
-    state_value = secrets.token_urlsafe(32)
+    state_value = generate_internal_oauth_state()
     record = AmazonOAuthState(
         state=state_value,
         user_id=user.id,
         marketplace_id=marketplace_id,
-        expires_at=now + OAUTH_STATE_TTL,
+        expires_at=oauth_state_expires_at(now),
     )
     db.add(record)
     db.commit()

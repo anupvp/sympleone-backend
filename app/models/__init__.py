@@ -1,3 +1,11 @@
+from app.models.amazon_appstore import AmazonAppstoreOAuthSession
+from app.models.amazon_seller_auth import (
+    AmazonConnectionStatus,
+    AmazonSellerAuthorization,
+)
+
+# Domain alias (AmazonConnection table == amazon_seller_authorizations).
+AmazonConnection = AmazonSellerAuthorization
 from app.models.amazon_oauth import AmazonOAuthState
 from app.models.assignment import EmployeeSellerAssignment
 from app.models.group import Group, GroupMember, GroupMemberKind
@@ -17,4 +25,8 @@ __all__ = [
     "GroupMemberKind",
     "EmployeeSellerAssignment",
     "AmazonOAuthState",
+    "AmazonAppstoreOAuthSession",
+    "AmazonSellerAuthorization",
+    "AmazonConnection",
+    "AmazonConnectionStatus",
 ]

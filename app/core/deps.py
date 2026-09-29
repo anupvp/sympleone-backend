@@ -54,6 +54,29 @@ def get_current_user(
     return user
 
 
+def get_optional_current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    db: Session = Depends(get_db),
+) -> User | None:
+    """Return the authenticated user when a valid Bearer token is sent; otherwise None."""
+    if credentials is None:
+        return None
+    if credentials.scheme.lower() != "bearer":
+        return None
+    token = credentials.credentials.strip()
+    if token.startswith("relaxed."):
+        return None
+    payload = decode_access_token(token)
+    if not payload or "sub" not in payload:
+        return None
+    user = db.get(User, payload["sub"])
+    if not user or user.deleted_at is not None:
+        return None
+    if user.status == UserStatus.SUSPENDED:
+        return None
+    return user
+
+
 def require_admin(user: User = Depends(get_current_user)) -> User:
     if user.kind != UserKind.ADMIN:
         raise HTTPException(

@@ -7,6 +7,73 @@ from app.database import SessionLocal, engine, Base
 from app.models import Policy, Role, RolePolicy, User, UserKind, UserStatus
 
 
+def _ensure_appstore_oauth_columns() -> None:
+    insp = inspect(engine)
+    if "amazon_appstore_oauth_sessions" not in insp.get_table_names():
+        return
+    columns = {col["name"] for col in insp.get_columns("amazon_appstore_oauth_sessions")}
+    if "organization_id" not in columns:
+        with engine.begin() as conn:
+            conn.execute(
+                text("ALTER TABLE amazon_appstore_oauth_sessions ADD COLUMN organization_id VARCHAR(36)")
+            )
+    if "used_at" not in columns:
+        with engine.begin() as conn:
+            conn.execute(
+                text("ALTER TABLE amazon_appstore_oauth_sessions ADD COLUMN used_at DATETIME")
+            )
+
+
+def _ensure_amazon_seller_auth_columns() -> None:
+    insp = inspect(engine)
+    if "amazon_seller_authorizations" not in insp.get_table_names():
+        return
+    columns = {col["name"] for col in insp.get_columns("amazon_seller_authorizations")}
+    with engine.begin() as conn:
+        if "refresh_token_ciphertext" not in columns:
+            conn.execute(
+                text(
+                    "ALTER TABLE amazon_seller_authorizations "
+                    "ADD COLUMN refresh_token_ciphertext TEXT NOT NULL DEFAULT ''"
+                )
+            )
+        if "status" not in columns:
+            conn.execute(
+                text(
+                    "ALTER TABLE amazon_seller_authorizations "
+                    "ADD COLUMN status VARCHAR(32) DEFAULT 'active'"
+                )
+            )
+        if "connected_at" not in columns:
+            conn.execute(
+                text(
+                    "ALTER TABLE amazon_seller_authorizations "
+                    "ADD COLUMN connected_at DATETIME"
+                )
+            )
+        if "last_authorized_at" not in columns:
+            conn.execute(
+                text(
+                    "ALTER TABLE amazon_seller_authorizations "
+                    "ADD COLUMN last_authorized_at DATETIME"
+                )
+            )
+        if "created_at" not in columns:
+            conn.execute(
+                text(
+                    "ALTER TABLE amazon_seller_authorizations "
+                    "ADD COLUMN created_at DATETIME"
+                )
+            )
+        if "updated_at" not in columns:
+            conn.execute(
+                text(
+                    "ALTER TABLE amazon_seller_authorizations "
+                    "ADD COLUMN updated_at DATETIME"
+                )
+            )
+
+
 def _ensure_user_columns() -> None:
     insp = inspect(engine)
     if "users" not in insp.get_table_names():
@@ -20,6 +87,8 @@ def _ensure_user_columns() -> None:
 def run_seed() -> None:
     Base.metadata.create_all(bind=engine)
     _ensure_user_columns()
+    _ensure_appstore_oauth_columns()
+    _ensure_amazon_seller_auth_columns()
     db = SessionLocal()
     try:
         for code, description in DEFAULT_POLICIES:
