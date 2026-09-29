@@ -1,3 +1,4 @@
+from app.models.amazon_oauth import AmazonOAuthState
 from app.models.assignment import EmployeeSellerAssignment
 from app.models.group import Group, GroupMember, GroupMemberKind
 from app.models.rbac import Policy, Role, RolePolicy, UserRole
@@ -15,4 +16,5 @@ __all__ = [
     "GroupMember",
     "GroupMemberKind",
     "EmployeeSellerAssignment",
+    "AmazonOAuthState",
 ]

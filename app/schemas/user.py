@@ -3,11 +3,19 @@ from pydantic import BaseModel, EmailStr, Field
 from app.models import UserKind, UserStatus
 
 
+class AssignedSellerSummary(BaseModel):
+    id: str
+    full_name: str
+    email: EmailStr
+    status: UserStatus
+
+
 class EmployeeCreate(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8)
     full_name: str = Field(min_length=1, max_length=255)
     role_ids: list[str] = Field(default_factory=list)
+    seller_ids: list[str] = Field(default_factory=list)
 
 
 class EmployeeUpdate(BaseModel):
@@ -38,3 +46,7 @@ class UserOut(BaseModel):
     role_ids: list[str] = Field(default_factory=list)
 
     model_config = {"from_attributes": True}
+
+
+class EmployeeOut(UserOut):
+    assigned_sellers: list[AssignedSellerSummary] = Field(default_factory=list)

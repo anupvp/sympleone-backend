@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import inspect, select, text
 
 from app.config import settings
 from app.core.permissions import DEFAULT_POLICIES
@@ -7,8 +7,19 @@ from app.database import SessionLocal, engine, Base
 from app.models import Policy, Role, RolePolicy, User, UserKind, UserStatus
 
 
+def _ensure_user_columns() -> None:
+    insp = inspect(engine)
+    if "users" not in insp.get_table_names():
+        return
+    columns = {col["name"] for col in insp.get_columns("users")}
+    if "deleted_at" not in columns:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE users ADD COLUMN deleted_at DATETIME"))
+
+
 def run_seed() -> None:
     Base.metadata.create_all(bind=engine)
+    _ensure_user_columns()
     db = SessionLocal()
     try:
         for code, description in DEFAULT_POLICIES:

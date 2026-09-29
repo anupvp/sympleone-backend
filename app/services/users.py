@@ -6,6 +6,20 @@ from app.core.security import hash_password
 from app.models import Role, User, UserKind, UserRole, UserStatus
 
 
+def effective_user_status(user: User) -> UserStatus:
+    if user.deleted_at is not None:
+        return UserStatus.DELETED
+    return user.status
+
+
+def seller_is_assignable(seller: User | None) -> bool:
+    return (
+        seller is not None
+        and seller.kind == UserKind.SELLER
+        and seller.deleted_at is None
+    )
+
+
 def _sync_user_roles(db: Session, user: User, role_ids: list[str]) -> None:
     if user.kind != UserKind.EMPLOYEE:
         return
@@ -27,7 +41,7 @@ def user_to_out(db: Session, user: User) -> dict:
         "email": user.email,
         "full_name": user.full_name,
         "kind": user.kind,
-        "status": user.status,
+        "status": effective_user_status(user),
         "role_ids": role_ids,
     }
 

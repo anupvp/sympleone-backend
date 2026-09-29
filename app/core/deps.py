@@ -3,7 +3,11 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.permissions import assert_user_active, user_has_policy
+from app.core.permissions import (
+    POLICY_AMAZON_SELLER_CONNECT,
+    assert_user_active,
+    user_has_policy,
+)
 from app.core.security import decode_access_token
 from app.database import get_db
 from app.models import User, UserKind, UserStatus
@@ -15,13 +19,35 @@ def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     db: Session = Depends(get_db),
 ) -> User:
-    if credentials is None or credentials.scheme.lower() != "bearer":
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
-    payload = decode_access_token(credentials.credentials)
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required. Send Authorization: Bearer <accessToken>.",
+        )
+    if credentials.scheme.lower() != "bearer":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authorization scheme. Use Bearer token.",
+        )
+    token = credentials.credentials.strip()
+    if token.startswith("relaxed."):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=(
+                "Development mock token cannot access the API. "
+                "Set VITE_AUTH_RELAXED=false and sign in via POST /api/auth/login."
+            ),
+        )
+    payload = decode_access_token(token)
     if not payload or "sub" not in payload:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired access token.",
+        )
     user = db.get(User, payload["sub"])
     if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    if user.deleted_at is not None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
     if user.status == UserStatus.SUSPENDED:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account suspended")
@@ -30,8 +56,31 @@ def get_current_user(
 
 def require_admin(user: User = Depends(get_current_user)) -> User:
     if user.kind != UserKind.ADMIN:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin only")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Admin access required. Only Symple owner (admin) accounts "
+                "can perform this action."
+            ),
+        )
     return user
+
+
+def require_amazon_seller_connect(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> User:
+    """Admin, employees with amazon:seller:connect, or sellers (own account)."""
+    if user.kind == UserKind.ADMIN:
+        return user
+    if user.kind == UserKind.SELLER:
+        return user
+    if user_has_policy(db, user, POLICY_AMAZON_SELLER_CONNECT):
+        return user
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Insufficient permissions",
+    )
 
 
 def require_policy(policy_code: str):

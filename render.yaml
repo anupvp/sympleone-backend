@@ -1,0 +1,38 @@
+# Render Blueprint — SympleOne API (deploy this repo as a Web Service)
+# https://render.com/docs/blueprint-spec
+#
+# After deploy, set the public URL in the frontend:
+#   VITE_API_BASE_URL=https://<this-service>.onrender.com/api
+
+services:
+  - type: web
+    name: sympleone-api
+    runtime: python
+    plan: free
+    region: singapore
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+      - key: SYMPLEONE_SECRET_KEY
+        generateValue: true
+      - key: SYMPLEONE_DATABASE_URL
+        value: sqlite:////tmp/sympleone.db
+      - key: SYMPLEONE_ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "480"
+      - key: SYMPLEONE_ADMIN_EMAIL
+        value: admin@sympleone.com
+      - key: SYMPLEONE_ADMIN_PASSWORD
+        sync: false
+      - key: AMAZON_APP_ID
+        sync: false
+      - key: AMAZON_REDIRECT_URI
+        sync: false
+      - key: AMAZON_CLIENT_ID
+        sync: false
+      - key: AMAZON_CLIENT_SECRET
+        sync: false
+      - key: AMAZON_AUTHORIZE_VERSION
+        value: beta

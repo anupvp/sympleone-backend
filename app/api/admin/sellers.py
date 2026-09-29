@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -9,6 +11,13 @@ from app.models import User, UserKind, UserStatus
 from app.schemas.user import SellerCreate, SellerUpdate, UserOut
 from app.services.users import create_user, update_user_fields, user_to_out
 
+
+def _get_seller(db: Session, seller_id: str) -> User | None:
+    user = db.get(User, seller_id)
+    if not user or user.kind != UserKind.SELLER or user.deleted_at is not None:
+        return None
+    return user
+
 router = APIRouter(prefix="/admin/sellers", tags=["admin-sellers"])
 
 
@@ -18,7 +27,9 @@ def list_sellers(
     db: Session = Depends(get_db),
 ) -> list[UserOut]:
     if user.kind == UserKind.ADMIN:
-        sellers = db.execute(select(User).where(User.kind == UserKind.SELLER)).scalars().all()
+        sellers = db.execute(
+            select(User).where(User.kind == UserKind.SELLER, User.deleted_at.is_(None))
+        ).scalars().all()
         return [UserOut(**user_to_out(db, s)) for s in sellers]
 
     allowed = accessible_seller_ids(db, user)
@@ -51,8 +62,8 @@ def update_seller(
     _: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> UserOut:
-    user = db.get(User, seller_id)
-    if not user or user.kind != UserKind.SELLER:
+    user = _get_seller(db, seller_id)
+    if not user:
         raise HTTPException(status_code=404, detail="Seller not found")
     user = update_user_fields(
         db,
@@ -70,10 +81,25 @@ def suspend_seller(
     _: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> UserOut:
-    user = db.get(User, seller_id)
-    if not user or user.kind != UserKind.SELLER:
+    user = _get_seller(db, seller_id)
+    if not user:
         raise HTTPException(status_code=404, detail="Seller not found")
     user.status = UserStatus.SUSPENDED
+    db.commit()
+    db.refresh(user)
+    return UserOut(**user_to_out(db, user))
+
+
+@router.post("/{seller_id}/activate", response_model=UserOut)
+def activate_seller(
+    seller_id: str,
+    _: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> UserOut:
+    user = _get_seller(db, seller_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Seller not found")
+    user.status = UserStatus.ACTIVE
     db.commit()
     db.refresh(user)
     return UserOut(**user_to_out(db, user))
@@ -86,7 +112,7 @@ def delete_seller(
     db: Session = Depends(get_db),
 ) -> None:
     user = db.get(User, seller_id)
-    if not user or user.kind != UserKind.SELLER:
+    if not user or user.kind != UserKind.SELLER or user.deleted_at is not None:
         raise HTTPException(status_code=404, detail="Seller not found")
-    db.delete(user)
+    user.deleted_at = datetime.now(UTC)
     db.commit()

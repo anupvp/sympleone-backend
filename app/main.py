@@ -3,9 +3,10 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import auth, scope
+from app.api import amazon, auth, scope
 from app.api.admin import employees, groups, roles, sellers
 from app.config import settings
+from app.middleware.admin_auth import AdminAuthMiddleware
 from app.seed import run_seed
 
 
@@ -29,9 +30,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(AdminAuthMiddleware)
 
 api = settings.api_prefix
 app.include_router(auth.router, prefix=api)
+app.include_router(amazon.router, prefix=api)
 app.include_router(scope.router, prefix=api)
 app.include_router(employees.router, prefix=api)
 app.include_router(sellers.router, prefix=api)

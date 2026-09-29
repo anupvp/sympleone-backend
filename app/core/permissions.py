@@ -22,6 +22,7 @@ POLICY_SELLER_ACCOUNTS_READ = "seller_accounts:read"
 POLICY_PRODUCTS_READ_OWN = "products:read_own"
 POLICY_PRODUCTS_READ_ASSIGNED = "products:read_assigned"
 POLICY_DASHBOARD_READ = "dashboard:read"
+POLICY_AMAZON_SELLER_CONNECT = "amazon:seller:connect"
 
 DEFAULT_POLICIES: list[tuple[str, str]] = [
     (POLICY_EMPLOYEES_MANAGE, "Create, update, suspend, delete employees"),
@@ -32,6 +33,7 @@ DEFAULT_POLICIES: list[tuple[str, str]] = [
     (POLICY_PRODUCTS_READ_OWN, "View own products and services"),
     (POLICY_PRODUCTS_READ_ASSIGNED, "View products for assigned sellers"),
     (POLICY_DASHBOARD_READ, "View dashboard metrics"),
+    (POLICY_AMAZON_SELLER_CONNECT, "Start Amazon Seller SP-API authorization"),
 ]
 
 
@@ -54,7 +56,9 @@ def user_has_policy(db: Session, user: User, policy_code: str) -> bool:
 
 def accessible_seller_ids(db: Session, user: User) -> set[str]:
     if user.kind == UserKind.ADMIN:
-        sellers = db.execute(select(User.id).where(User.kind == UserKind.SELLER)).all()
+        sellers = db.execute(
+            select(User.id).where(User.kind == UserKind.SELLER, User.deleted_at.is_(None))
+        ).all()
         return {s[0] for s in sellers}
 
     if user.kind == UserKind.SELLER:
@@ -89,5 +93,7 @@ def accessible_seller_ids(db: Session, user: User) -> set[str]:
 
 
 def assert_user_active(user: User) -> None:
+    if user.deleted_at is not None:
+        raise PermissionError("Account is deleted")
     if user.status != UserStatus.ACTIVE:
         raise PermissionError("Account is suspended")
