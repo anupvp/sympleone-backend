@@ -74,6 +74,74 @@ def _ensure_amazon_seller_auth_columns() -> None:
             )
 
 
+def _ensure_amazon_oauth_states_nullable_user_id() -> None:
+    """Allow anonymous Appstore connect (user_id NULL) on existing SQLite DBs."""
+    insp = inspect(engine)
+    if "amazon_oauth_states" not in insp.get_table_names():
+        return
+    user_col = next(
+        (c for c in insp.get_columns("amazon_oauth_states") if c["name"] == "user_id"),
+        None,
+    )
+    if user_col is None or user_col.get("nullable", True):
+        return
+
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                """
+                CREATE TABLE amazon_oauth_states__new (
+                    id VARCHAR(36) NOT NULL PRIMARY KEY,
+                    state VARCHAR(128) NOT NULL,
+                    user_id VARCHAR(36),
+                    marketplace_id VARCHAR(32) NOT NULL,
+                    expires_at DATETIME NOT NULL,
+                    used_at DATETIME,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE SET NULL
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO amazon_oauth_states__new (
+                    id, state, user_id, marketplace_id, expires_at, used_at, created_at
+                )
+                SELECT id, state, user_id, marketplace_id, expires_at, used_at, created_at
+                FROM amazon_oauth_states
+                """
+            )
+        )
+        conn.execute(text("DROP TABLE amazon_oauth_states"))
+        conn.execute(text("ALTER TABLE amazon_oauth_states__new RENAME TO amazon_oauth_states"))
+        conn.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS ix_amazon_oauth_states_state "
+                "ON amazon_oauth_states (state)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_amazon_oauth_states_user_id "
+                "ON amazon_oauth_states (user_id)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_amazon_oauth_states_marketplace_id "
+                "ON amazon_oauth_states (marketplace_id)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_amazon_oauth_states_expires_at "
+                "ON amazon_oauth_states (expires_at)"
+            )
+        )
+
+
 def _ensure_user_columns() -> None:
     insp = inspect(engine)
     if "users" not in insp.get_table_names():
@@ -88,6 +156,7 @@ def run_seed() -> None:
     Base.metadata.create_all(bind=engine)
     _ensure_user_columns()
     _ensure_appstore_oauth_columns()
+    _ensure_amazon_oauth_states_nullable_user_id()
     _ensure_amazon_seller_auth_columns()
     db = SessionLocal()
     try:

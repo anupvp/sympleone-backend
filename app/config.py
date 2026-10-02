@@ -38,6 +38,10 @@ class Settings(BaseSettings):
         default=None,
         validation_alias="AMAZON_OAUTH_SUCCESS_REDIRECT_URL",
     )
+    amazon_oauth_frontend_callback_url: str | None = Field(
+        default=None,
+        validation_alias="AMAZON_OAUTH_FRONTEND_CALLBACK_URL",
+    )
 
 
 settings = Settings()

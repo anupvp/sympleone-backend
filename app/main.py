@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import amazon, auth, scope
+from app.api import amazon, auth, legal_pages, scope
 from app.api.admin import employees, groups, roles, sellers
 from app.config import settings
 from app.middleware.admin_auth import AdminAuthMiddleware
@@ -40,6 +40,7 @@ app.include_router(employees.router, prefix=api)
 app.include_router(sellers.router, prefix=api)
 app.include_router(groups.router, prefix=api)
 app.include_router(roles.router, prefix=api)
+app.include_router(legal_pages.router)
 
 
 @app.get("/health")

@@ -25,9 +25,12 @@ def post_connect(client: TestClient, headers: dict[str, str] | None = None, body
     )
 
 
-def test_unauthenticated_returns_401(client: TestClient) -> None:
+def test_unauthenticated_returns_authorization_url(client: TestClient, db: Session) -> None:
     response = post_connect(client)
-    assert response.status_code == 401
+    assert response.status_code == 200
+    assert "authorization_url" in response.json()
+    row = db.execute(select(AmazonOAuthState)).scalar_one()
+    assert row.user_id is None
 
 
 def test_admin_returns_200_and_authorization_url(client: TestClient, admin_user: User) -> None:

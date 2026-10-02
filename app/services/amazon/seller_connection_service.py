@@ -33,17 +33,24 @@ def find_seller_connection(
 def upsert_seller_connection(
     db: Session,
     *,
-    oauth_session: AmazonAppstoreOAuthSession,
+    oauth_session: AmazonAppstoreOAuthSession | None = None,
     refresh_token: str,
+    user_id: str | None = None,
+    organization_id: str | None = None,
+    selling_partner_id: str | None = None,
 ) -> AmazonSellerAuthorization:
     """
-    Step 7: encrypt and store refresh_token at rest.
-    Step 8: create or update connection for (organization_id, selling_partner_id).
+    Encrypt and store refresh_token at rest; create or update (organization_id, selling_partner_id).
     """
+    if oauth_session is not None:
+        organization_id = oauth_session.organization_id
+        selling_partner_id = oauth_session.selling_partner_id
+        user_id = oauth_session.user_id
+    if not selling_partner_id:
+        raise ValueError("selling_partner_id is required")
+
     ciphertext = encrypt_secret(refresh_token)
     now = datetime.now(UTC)
-    organization_id = oauth_session.organization_id
-    selling_partner_id = oauth_session.selling_partner_id
 
     existing = find_seller_connection(
         db,
@@ -52,7 +59,7 @@ def upsert_seller_connection(
     )
     if existing:
         existing.refresh_token_ciphertext = ciphertext
-        existing.user_id = oauth_session.user_id
+        existing.user_id = user_id
         existing.status = AmazonConnectionStatus.ACTIVE
         existing.last_authorized_at = now
         existing.updated_at = now
@@ -65,7 +72,7 @@ def upsert_seller_connection(
 
     connection = AmazonSellerAuthorization(
         selling_partner_id=selling_partner_id,
-        user_id=oauth_session.user_id,
+        user_id=user_id,
         organization_id=organization_id,
         refresh_token_ciphertext=ciphertext,
         status=AmazonConnectionStatus.ACTIVE,

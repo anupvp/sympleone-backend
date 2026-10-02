@@ -89,21 +89,26 @@ def require_admin(user: User = Depends(get_current_user)) -> User:
     return user
 
 
-def require_amazon_seller_connect(
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-) -> User:
+def assert_user_may_start_amazon_connect(user: User, db: Session) -> None:
     """Admin, employees with amazon:seller:connect, or sellers (own account)."""
     if user.kind == UserKind.ADMIN:
-        return user
+        return
     if user.kind == UserKind.SELLER:
-        return user
+        return
     if user_has_policy(db, user, POLICY_AMAZON_SELLER_CONNECT):
-        return user
+        return
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
         detail="Insufficient permissions",
     )
+
+
+def require_amazon_seller_connect(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> User:
+    assert_user_may_start_amazon_connect(user, db)
+    return user
 
 
 def require_policy(policy_code: str):

@@ -78,7 +78,7 @@ def build_authorization_url(marketplace_id: str, state: str) -> str:
 def create_oauth_state_record(
     db: Session,
     *,
-    user: User,
+    user: User | None,
     marketplace_id: str,
 ) -> AmazonOAuthState:
     _require_amazon_connect_config()
@@ -88,7 +88,7 @@ def create_oauth_state_record(
     state_value = generate_internal_oauth_state()
     record = AmazonOAuthState(
         state=state_value,
-        user_id=user.id,
+        user_id=user.id if user else None,
         marketplace_id=marketplace_id,
         expires_at=oauth_state_expires_at(now),
     )
@@ -98,7 +98,7 @@ def create_oauth_state_record(
     return record
 
 
-def start_amazon_connect(db: Session, user: User, marketplace_id: str) -> str:
+def start_amazon_connect(db: Session, user: User | None, marketplace_id: str) -> str:
     try:
         record = create_oauth_state_record(db, user=user, marketplace_id=marketplace_id)
         return build_authorization_url(marketplace_id, record.state)

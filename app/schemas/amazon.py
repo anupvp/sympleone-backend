@@ -24,3 +24,14 @@ class AmazonConnectRequest(BaseModel):
 
 class AmazonConnectResponse(BaseModel):
     authorization_url: str
+
+
+class AmazonCallbackCompleteRequest(BaseModel):
+    spapi_oauth_code: str = Field(..., min_length=1)
+    state: str = Field(..., min_length=1)
+    selling_partner_id: str = Field(..., min_length=1)
+
+
+class AmazonCallbackCompleteResponse(BaseModel):
+    redirect_url: str
+    success: bool = True
