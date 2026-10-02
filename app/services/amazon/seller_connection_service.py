@@ -59,7 +59,8 @@ def upsert_seller_connection(
     )
     if existing:
         existing.refresh_token_ciphertext = ciphertext
-        existing.user_id = user_id
+        if user_id is not None:
+            existing.user_id = user_id
         existing.status = AmazonConnectionStatus.ACTIVE
         existing.last_authorized_at = now
         existing.updated_at = now

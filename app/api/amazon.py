@@ -16,7 +16,9 @@ from app.schemas.amazon import (
     AmazonCallbackCompleteResponse,
     AmazonConnectRequest,
     AmazonConnectResponse,
+    AmazonSellerNewAccountOut,
 )
+from app.services.amazon.seller_onboarding_service import establish_seller_session_after_oauth
 from app.services.amazon.oauth_redirect_urls import build_frontend_callback_handoff_url
 from app.services.amazon.appstore_login_service import (
     AppstoreLoginConfigurationError,
@@ -152,13 +154,35 @@ def amazon_oauth_callback_complete(
         body.selling_partner_id[:6] + "…" if len(body.selling_partner_id) > 6 else body.selling_partner_id,
     )
     try:
-        redirect_url = process_amazon_oauth_callback(
+        outcome = process_amazon_oauth_callback(
             db,
             spapi_oauth_code=body.spapi_oauth_code,
             state=body.state,
             selling_partner_id=body.selling_partner_id,
         )
-        return AmazonCallbackCompleteResponse(redirect_url=redirect_url, success=True)
+        session = establish_seller_session_after_oauth(
+            db,
+            organization_id=outcome.organization_id,
+            selling_partner_id=outcome.selling_partner_id,
+        )
+        new_account = None
+        access_token = None
+        user_out = None
+        if session is not None:
+            access_token = session.access_token
+            user_out = session.user
+            if session.new_account_password and session.new_account_email:
+                new_account = AmazonSellerNewAccountOut(
+                    email=session.new_account_email,
+                    password=session.new_account_password,
+                )
+        return AmazonCallbackCompleteResponse(
+            redirect_url=outcome.redirect_url,
+            success=True,
+            accessToken=access_token,
+            user=user_out,
+            newAccount=new_account,
+        )
     except CallbackValidationError:
         logger.warning("Amazon OAuth callback validation failed (state expired, unknown, or reused)")
         return AmazonCallbackCompleteResponse(

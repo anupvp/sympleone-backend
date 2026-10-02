@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hmac
 import logging
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
@@ -30,6 +31,13 @@ class CallbackValidationError(ValueError):
 
 class CallbackProcessingError(Exception):
     """Callback could not be completed (e.g. LWA or persistence)."""
+
+
+@dataclass(frozen=True)
+class AmazonOAuthCallbackResult:
+    redirect_url: str
+    selling_partner_id: str
+    organization_id: str | None
 
 
 def _secure_str_equal(left: str, right: str) -> bool:
@@ -112,7 +120,7 @@ def process_amazon_oauth_callback(
     spapi_oauth_code: str,
     state: str,
     selling_partner_id: str,
-) -> str:
+) -> AmazonOAuthCallbackResult:
     """
     Complete Appstore OAuth after Amazon redirects to Symple One.
 
@@ -158,7 +166,9 @@ def process_amazon_oauth_callback(
         raise CallbackProcessingError("Amazon authorization could not be completed") from exc
 
     refresh_token = token_payload["refresh_token"]
+    organization_id: str | None = None
     if appstore_session is not None:
+        organization_id = appstore_session.organization_id
         upsert_seller_connection(db, oauth_session=appstore_session, refresh_token=refresh_token)
         appstore_session.used_at = datetime.now(UTC)
     else:
@@ -173,7 +183,11 @@ def process_amazon_oauth_callback(
         website_state.used_at = datetime.now(UTC)
     db.commit()
 
-    return _success_redirect_url(
+    return AmazonOAuthCallbackResult(
+        redirect_url=_success_redirect_url(
+            selling_partner_id=selling_partner_id,
+            marketplace_id=marketplace_id,
+        ),
         selling_partner_id=selling_partner_id,
-        marketplace_id=marketplace_id,
+        organization_id=organization_id,
     )

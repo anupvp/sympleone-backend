@@ -15,7 +15,9 @@ from app.models import (
     AmazonOAuthState,
     AmazonSellerAuthorization,
     User,
+    UserKind,
 )
+from app.services.amazon.seller_onboarding_service import seller_login_email
 from app.services.amazon.oauth_state import oauth_state_expires_at
 
 CALLBACK_PATH = "/api/amazon/callback"
@@ -225,6 +227,17 @@ def test_successful_callback_redirects_and_persists(
     assert auth.status == AmazonConnectionStatus.ACTIVE
     assert auth.connected_at is not None
     assert auth.last_authorized_at is not None
+    assert auth.user_id is not None
+
+    assert data["accessToken"]
+    assert data["user"]["email"] == seller_login_email(PARTNER_ID)
+    assert data["newAccount"]["email"] == seller_login_email(PARTNER_ID)
+    assert len(data["newAccount"]["password"]) >= 8
+    assert "secret-refresh" not in data["newAccount"]["password"]
+
+    seller = db.get(User, auth.user_id)
+    assert seller is not None
+    assert seller.kind == UserKind.SELLER
 
     session = db.execute(
         select(AmazonAppstoreOAuthSession).where(
@@ -300,6 +313,11 @@ def test_website_connect_callback_persists_connection(
     assert auth.user_id == admin_user.id
     db.refresh(row)
     assert row.used_at is not None
+
+    payload = response.json()
+    assert payload["accessToken"]
+    assert payload["user"]["id"] == admin_user.id
+    assert payload.get("newAccount") is None
 
 
 @patch("app.services.amazon.callback_service.exchange_authorization_code")

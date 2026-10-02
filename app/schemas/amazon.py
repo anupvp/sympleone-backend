@@ -1,6 +1,8 @@
 import re
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator
+
+from app.schemas.auth import AuthUserOut
 
 _AMAZON_MARKETPLACE_ID = re.compile(r"^A[A-Z0-9]{8,16}$")
 
@@ -32,6 +34,14 @@ class AmazonCallbackCompleteRequest(BaseModel):
     selling_partner_id: str = Field(..., min_length=1)
 
 
+class AmazonSellerNewAccountOut(BaseModel):
+    email: EmailStr
+    password: str
+
+
 class AmazonCallbackCompleteResponse(BaseModel):
     redirect_url: str
     success: bool = True
+    accessToken: str | None = None
+    user: AuthUserOut | None = None
+    newAccount: AmazonSellerNewAccountOut | None = None
