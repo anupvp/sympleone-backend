@@ -8,8 +8,8 @@ from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.config import settings
 from app.models import AmazonAppstoreOAuthSession, AmazonOAuthState
+from app.services.amazon.oauth_redirect_urls import frontend_oauth_connect_url
 from app.services.amazon.seller_connection_service import upsert_seller_connection
 from app.services.amazon.appstore_login_service import (
     AppstoreLoginValidationError,
@@ -41,9 +41,7 @@ def _success_redirect_url(
     selling_partner_id: str,
     marketplace_id: str | None = None,
 ) -> str:
-    base = (settings.amazon_oauth_success_redirect_url or "").strip()
-    if not base:
-        base = "http://localhost:5173/amazon/connect"
+    base = frontend_oauth_connect_url()
     params: dict[str, str] = {
         "amazon": "connected",
         "selling_partner_id": selling_partner_id,
@@ -54,10 +52,7 @@ def _success_redirect_url(
 
 
 def error_redirect_url() -> str:
-    base = (settings.amazon_oauth_success_redirect_url or "").strip()
-    if not base:
-        base = "http://localhost:5173/amazon/connect"
-    return _append_query(base, {"amazon": "error"})
+    return _append_query(frontend_oauth_connect_url(), {"amazon": "error"})
 
 
 def _append_query(url: str, params: dict[str, str]) -> str:

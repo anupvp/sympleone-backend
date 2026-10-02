@@ -1,8 +1,33 @@
 """Amazon OAuth browser redirect URLs (frontend callback + success pages)."""
 
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 
 from app.config import settings
+
+_CONNECT_PATH = "/amazon/connect"
+_CALLBACK_PATH = "/amazon/callback"
+
+
+def frontend_oauth_connect_url() -> str:
+    """
+    SPA route that shows success/error after OAuth (must include /amazon/connect).
+    """
+    explicit = (settings.amazon_oauth_success_redirect_url or "").strip().rstrip("/")
+    if explicit.endswith(_CONNECT_PATH):
+        return explicit
+
+    redirect = (settings.amazon_redirect_uri or "").strip().rstrip("/")
+    if redirect and _CALLBACK_PATH in redirect and "/api/amazon/callback" not in redirect:
+        parsed = urlparse(redirect)
+        return f"{parsed.scheme}://{parsed.netloc}{_CONNECT_PATH}"
+
+    if explicit:
+        parsed = urlparse(explicit if "://" in explicit else f"https://{explicit}")
+        if parsed.path in ("", "/"):
+            return f"{parsed.scheme}://{parsed.netloc}{_CONNECT_PATH}"
+        return f"{explicit}{_CONNECT_PATH}" if not explicit.endswith(_CONNECT_PATH) else explicit
+
+    return f"http://localhost:5173{_CONNECT_PATH}"
 
 
 def frontend_oauth_callback_url() -> str:
@@ -19,15 +44,8 @@ def frontend_oauth_callback_url() -> str:
     if redirect and "/amazon/callback" in redirect and "/api/amazon/callback" not in redirect:
         return redirect
 
-    success = (settings.amazon_oauth_success_redirect_url or "").strip().rstrip("/")
-    if success.endswith("/amazon/connect"):
-        return f"{success[: -len('/amazon/connect')]}/amazon/callback"
-    if success and success not in ("http://localhost:5173", "https://sympleone.onrender.com"):
-        return f"{success}/amazon/callback"
-    if success in ("https://sympleone.onrender.com", "http://localhost:5173"):
-        return f"{success}/amazon/callback"
-
-    return "http://localhost:5173/amazon/callback"
+    connect = frontend_oauth_connect_url()
+    return connect.replace(_CONNECT_PATH, _CALLBACK_PATH, 1)
 
 
 def build_frontend_callback_handoff_url(

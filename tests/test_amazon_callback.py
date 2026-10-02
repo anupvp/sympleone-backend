@@ -120,30 +120,37 @@ def test_missing_selling_partner_id_returns_400(client: TestClient, db: Session)
     assert response.status_code == 400
 
 
-def test_invalid_state_returns_400(client: TestClient) -> None:
+def test_invalid_state_redirects_to_connect_error(client: TestClient) -> None:
     response = callback_complete(
         client,
         state="unknown-state",
     )
-    assert response.status_code == 400
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] is False
+    assert "amazon=error" in data["redirect_url"]
+    assert "/amazon/connect" in data["redirect_url"]
 
 
-def test_expired_state_returns_400(client: TestClient, db: Session) -> None:
+def test_expired_state_redirects_to_connect_error(client: TestClient, db: Session) -> None:
     seed_session(db, expired=True)
     response = callback_complete(client)
-    assert response.status_code == 400
+    assert response.status_code == 200
+    assert response.json()["success"] is False
 
 
-def test_already_used_state_returns_400(client: TestClient, db: Session) -> None:
+def test_already_used_state_redirects_to_connect_error(client: TestClient, db: Session) -> None:
     seed_session(db, used=True)
     response = callback_complete(client)
-    assert response.status_code == 400
+    assert response.status_code == 200
+    assert response.json()["success"] is False
 
 
-def test_seller_mismatch_returns_400(client: TestClient, db: Session) -> None:
+def test_seller_mismatch_redirects_to_connect_error(client: TestClient, db: Session) -> None:
     seed_session(db)
     response = callback_complete(client, selling_partner_id="A3OTHERSELLER1")
-    assert response.status_code == 400
+    assert response.status_code == 200
+    assert response.json()["success"] is False
 
 
 @patch("app.services.amazon.callback_service.exchange_authorization_code")
@@ -300,4 +307,4 @@ def test_state_cannot_be_reused(mock_exchange, client: TestClient, db: Session) 
     mock_exchange.return_value = {"refresh_token": "rt1", "access_token": "a", "expires_in": 1}
     seed_session(db)
     assert callback_complete(client).status_code == 200
-    assert callback_complete(client).status_code == 400
+    assert callback_complete(client).json()["success"] is False
