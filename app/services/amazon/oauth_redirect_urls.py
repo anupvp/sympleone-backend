@@ -14,9 +14,19 @@ def frontend_oauth_callback_url() -> str:
     explicit = (settings.amazon_oauth_frontend_callback_url or "").strip().rstrip("/")
     if explicit:
         return explicit
+
+    redirect = (settings.amazon_redirect_uri or "").strip().rstrip("/")
+    if redirect and "/amazon/callback" in redirect and "/api/amazon/callback" not in redirect:
+        return redirect
+
     success = (settings.amazon_oauth_success_redirect_url or "").strip().rstrip("/")
     if success.endswith("/amazon/connect"):
         return f"{success[: -len('/amazon/connect')]}/amazon/callback"
+    if success and success not in ("http://localhost:5173", "https://sympleone.onrender.com"):
+        return f"{success}/amazon/callback"
+    if success in ("https://sympleone.onrender.com", "http://localhost:5173"):
+        return f"{success}/amazon/callback"
+
     return "http://localhost:5173/amazon/callback"
 
 
