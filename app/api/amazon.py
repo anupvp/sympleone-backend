@@ -137,6 +137,7 @@ def amazon_oauth_callback_handoff(
         state=state,
         selling_partner_id=selling_partner_id,
     )
+    logger.info("Amazon OAuth browser handoff to frontend callback (selling_partner_id set)")
     return RedirectResponse(url=handoff, status_code=status.HTTP_302_FOUND)
 
 
@@ -146,6 +147,10 @@ def amazon_oauth_callback_complete(
     db: Session = Depends(get_db),
 ) -> AmazonCallbackCompleteResponse:
     """Complete OAuth after the frontend callback page receives Amazon's redirect."""
+    logger.info(
+        "Amazon OAuth callback complete (selling_partner_id=%s)",
+        body.selling_partner_id[:6] + "…" if len(body.selling_partner_id) > 6 else body.selling_partner_id,
+    )
     try:
         redirect_url = process_amazon_oauth_callback(
             db,
@@ -155,6 +160,7 @@ def amazon_oauth_callback_complete(
         )
         return AmazonCallbackCompleteResponse(redirect_url=redirect_url, success=True)
     except CallbackValidationError:
+        logger.warning("Amazon OAuth callback validation failed (state expired, unknown, or reused)")
         return AmazonCallbackCompleteResponse(
             redirect_url=error_redirect_url(),
             success=False,
@@ -187,4 +193,9 @@ def connect_amazon_seller(
     if user is not None:
         assert_user_may_start_amazon_connect(user, db)
     authorization_url = start_amazon_connect(db, user, body.marketplace_id)
+    logger.info(
+        "Amazon connect authorization URL issued (marketplace_id=%s, authenticated=%s)",
+        body.marketplace_id,
+        user is not None,
+    )
     return AmazonConnectResponse(authorization_url=authorization_url)

@@ -27,6 +27,9 @@ def frontend_oauth_connect_url() -> str:
             return f"{parsed.scheme}://{parsed.netloc}{_CONNECT_PATH}"
         return f"{explicit}{_CONNECT_PATH}" if not explicit.endswith(_CONNECT_PATH) else explicit
 
+    if redirect and "sympleone.onrender.com" in redirect:
+        return "https://sympleone.onrender.com/amazon/connect"
+
     return f"http://localhost:5173{_CONNECT_PATH}"
 
 
@@ -45,7 +48,9 @@ def frontend_oauth_callback_url() -> str:
         return redirect
 
     connect = frontend_oauth_connect_url()
-    return connect.replace(_CONNECT_PATH, _CALLBACK_PATH, 1)
+    if connect.endswith(_CONNECT_PATH):
+        return f"{connect[: -len(_CONNECT_PATH)]}{_CALLBACK_PATH}"
+    return f"{connect}{_CALLBACK_PATH}"
 
 
 def build_frontend_callback_handoff_url(
