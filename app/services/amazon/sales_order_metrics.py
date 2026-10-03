@@ -40,6 +40,16 @@ def _metric_sales_amount(row: dict[str, Any]) -> float:
         return 0.0
 
 
+def _metric_order_count(row: dict[str, Any]) -> int:
+    count = row.get("orderCount")
+    if count is None:
+        return 0
+    try:
+        return int(count)
+    except (TypeError, ValueError):
+        return 0
+
+
 def _metric_currency(row: dict[str, Any]) -> str:
     total_sales = row.get("totalSales") or {}
     code = total_sales.get("currencyCode")
@@ -60,12 +70,16 @@ def _bucket_key(row: dict[str, Any], granularity: str) -> str:
     return _parse_interval_start(interval).isoformat()
 
 
-def _aggregate_payload(rows: list[dict[str, Any]], granularity: str) -> dict[str, float]:
-    buckets: dict[str, float] = {}
+def _aggregate_payload(
+    rows: list[dict[str, Any]], granularity: str
+) -> tuple[dict[str, float], dict[str, int]]:
+    sales: dict[str, float] = {}
+    orders: dict[str, int] = {}
     for row in rows:
         key = _bucket_key(row, granularity)
-        buckets[key] = buckets.get(key, 0.0) + _metric_sales_amount(row)
-    return buckets
+        sales[key] = sales.get(key, 0.0) + _metric_sales_amount(row)
+        orders[key] = orders.get(key, 0) + _metric_order_count(row)
+    return sales, orders
 
 
 def fetch_order_metrics(
@@ -75,9 +89,9 @@ def fetch_order_metrics(
     start: date,
     end: date,
     granularity: str | None = None,
-) -> tuple[dict[str, float], str]:
+) -> tuple[dict[str, float], dict[str, int], str]:
     """
-    Return sales totals keyed by ISO date (or hour bucket), and currency code.
+    Return sales totals and order counts keyed by ISO date, plus currency code.
     """
     gran = granularity or _choose_granularity(start, end)
     host = sp_api_host_for_marketplace(marketplace_id)
@@ -101,16 +115,24 @@ def fetch_order_metrics(
         currency = _metric_currency(payload[0])
 
     if gran == "Hour":
-        daily: dict[str, float] = {}
+        daily_sales: dict[str, float] = {}
+        daily_orders: dict[str, int] = {}
         for row in payload:
             if not isinstance(row, dict):
                 continue
             day_key = _parse_interval_start(str(row.get("interval") or "")).isoformat()
-            daily[day_key] = daily.get(day_key, 0.0) + _metric_sales_amount(row)
-        return daily, currency
+            daily_sales[day_key] = daily_sales.get(day_key, 0.0) + _metric_sales_amount(
+                row
+            )
+            daily_orders[day_key] = daily_orders.get(day_key, 0) + _metric_order_count(
+                row
+            )
+        return daily_sales, daily_orders, currency
 
-    buckets = _aggregate_payload([r for r in payload if isinstance(r, dict)], gran)
-    return buckets, currency
+    sales_buckets, order_buckets = _aggregate_payload(
+        [r for r in payload if isinstance(r, dict)], gran
+    )
+    return sales_buckets, order_buckets, currency
 
 
 def previous_period(start: date, end: date) -> tuple[date, date]:

@@ -4,7 +4,11 @@ from pydantic import BaseModel, Field
 class SalesTrendPointOut(BaseModel):
     date: str
     netSales: float
+    netSalesAmount: float
     previousPeriod: float
+    previousPeriodAmount: float
+    orderCount: int
+    previousPeriodOrderCount: int
 
 
 class SalesTrendOut(BaseModel):

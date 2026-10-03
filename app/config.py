@@ -1,4 +1,4 @@
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -21,7 +21,15 @@ class Settings(BaseSettings):
     amazon_app_id: str | None = Field(default=None, validation_alias="AMAZON_APP_ID")
     amazon_client_id: str | None = Field(default=None, validation_alias="AMAZON_CLIENT_ID")
     amazon_client_secret: str | None = Field(default=None, validation_alias="AMAZON_CLIENT_SECRET")
-    amazon_redirect_uri: str | None = Field(default=None, validation_alias="AMAZON_REDIRECT_URI")
+    amazon_lwa_token_url: str = Field(
+        default="https://api.amazon.com/auth/o2/token",
+        validation_alias=AliasChoices("AMAZON_LWA_TOKEN_URL", "LWA_TOKEN_URL"),
+    )
+    # Render / Seller Central may use AMAZON_LOGIN_URI or AMAZON_REDIRECT_URI (same value).
+    amazon_redirect_uri: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("AMAZON_REDIRECT_URI", "AMAZON_LOGIN_URI"),
+    )
     amazon_authorize_version: str | None = Field(
         default="beta",
         validation_alias="AMAZON_AUTHORIZE_VERSION",
@@ -46,17 +54,30 @@ class Settings(BaseSettings):
         default="A21TJRUUN4KGV",
         validation_alias="AMAZON_DEFAULT_MARKETPLACE_ID",
     )
+    # IAM user keys for SP-API SigV4 (separate from LWA CLIENT_ID / CLIENT_SECRET).
     amazon_sp_api_aws_access_key_id: str | None = Field(
         default=None,
-        validation_alias="AMAZON_SP_API_AWS_ACCESS_KEY_ID",
+        validation_alias=AliasChoices(
+            "AMAZON_SP_API_AWS_ACCESS_KEY_ID",
+            "AMAZON_AWS_ACCESS_KEY_ID",
+            "AWS_ACCESS_KEY_ID",
+        ),
     )
     amazon_sp_api_aws_secret_access_key: str | None = Field(
         default=None,
-        validation_alias="AMAZON_SP_API_AWS_SECRET_ACCESS_KEY",
+        validation_alias=AliasChoices(
+            "AMAZON_SP_API_AWS_SECRET_ACCESS_KEY",
+            "AMAZON_AWS_SECRET_ACCESS_KEY",
+            "AWS_SECRET_ACCESS_KEY",
+        ),
     )
     amazon_sp_api_aws_region: str = Field(
         default="eu-west-1",
-        validation_alias="AMAZON_SP_API_AWS_REGION",
+        validation_alias=AliasChoices(
+            "AMAZON_SP_API_AWS_REGION",
+            "AMAZON_AWS_REGION",
+            "AWS_DEFAULT_REGION",
+        ),
     )
 
 

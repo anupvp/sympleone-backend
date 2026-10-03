@@ -34,10 +34,12 @@ def test_sales_trend_for_seller(
     mock_metrics.side_effect = [
         (
             {"2026-09-01": 500_000.0, "2026-09-02": 700_000.0},
+            {"2026-09-01": 12, "2026-09-02": 18},
             "INR",
         ),
         (
             {"2026-08-01": 400_000.0, "2026-08-02": 450_000.0},
+            {"2026-08-01": 10, "2026-08-02": 11},
             "INR",
         ),
     ]
@@ -58,6 +60,9 @@ def test_sales_trend_for_seller(
     assert len(data["points"]) == 2
     assert data["points"][0]["netSales"] == 5.0
     assert data["points"][0]["previousPeriod"] == 4.0
+    assert data["points"][0]["orderCount"] == 12
+    assert data["points"][0]["previousPeriodOrderCount"] == 10
+    assert data["points"][0]["netSalesAmount"] == 500_000.0
 
 
 def test_sales_trend_requires_amazon_connection(
@@ -81,11 +86,12 @@ def test_order_metrics_interval_and_host(mock_get) -> None:
             {
                 "interval": "2026-09-01T00:00:00Z--2026-09-01T23:59:59Z",
                 "totalSales": {"currencyCode": "INR", "amount": "1000.50"},
+                "orderCount": 3,
             }
         ]
     }
 
-    buckets, currency = fetch_order_metrics(
+    sales, orders, currency = fetch_order_metrics(
         access_token="token",
         marketplace_id="A21TJRUUN4KGV",
         start=date(2026, 9, 1),
@@ -93,6 +99,7 @@ def test_order_metrics_interval_and_host(mock_get) -> None:
         granularity="Day",
     )
     assert currency == "INR"
-    assert buckets["2026-09-01"] == 1000.50
+    assert sales["2026-09-01"] == 1000.50
+    assert orders["2026-09-01"] == 3
     called_url_host = mock_get.call_args.kwargs["host"]
     assert called_url_host == "sellingpartnerapi-eu.amazon.com"

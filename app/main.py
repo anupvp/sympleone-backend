@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -8,11 +9,23 @@ from app.api.admin import employees, groups, roles, sellers
 from app.config import settings
 from app.middleware.admin_auth import AdminAuthMiddleware
 from app.seed import run_seed
+from app.services.amazon.amazon_credentials import (
+    amazon_oauth_configured,
+    sp_api_iam_signing_configured,
+)
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     run_seed()
+    logger.info(
+        "Amazon config: oauth=%s lwa_token_url_set=%s iam_signing=%s",
+        amazon_oauth_configured(),
+        bool((settings.amazon_lwa_token_url or "").strip()),
+        sp_api_iam_signing_configured(),
+    )
     yield
 
 
@@ -45,5 +58,10 @@ app.include_router(legal_pages.router)
 
 
 @app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok", "service": "sympleone"}
+def health() -> dict[str, str | bool]:
+    return {
+        "status": "ok",
+        "service": "sympleone",
+        "amazonOAuthConfigured": amazon_oauth_configured(),
+        "amazonIamSigningConfigured": sp_api_iam_signing_configured(),
+    }

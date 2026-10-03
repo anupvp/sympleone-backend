@@ -30,9 +30,14 @@ services:
         sync: false
       - key: AMAZON_REDIRECT_URI
         sync: false
+      # Same value as AMAZON_REDIRECT_URI if your dashboard uses this name
+      - key: AMAZON_LOGIN_URI
+        sync: false
       - key: AMAZON_CLIENT_ID
         sync: false
       - key: AMAZON_CLIENT_SECRET
+        sync: false
+      - key: AMAZON_LWA_TOKEN_URL
         sync: false
       - key: AMAZON_AUTHORIZE_VERSION
         value: beta

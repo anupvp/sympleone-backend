@@ -87,13 +87,13 @@ def build_sales_trend_for_user(
     prev_start, prev_end = previous_period(start, end)
 
     try:
-        current_buckets, currency = fetch_order_metrics(
+        current_sales, current_orders, currency = fetch_order_metrics(
             access_token=access_token,
             marketplace_id=marketplace,
             start=start,
             end=end,
         )
-        previous_buckets, _ = fetch_order_metrics(
+        previous_sales, previous_orders, _ = fetch_order_metrics(
             access_token=access_token,
             marketplace_id=marketplace,
             start=prev_start,
@@ -102,18 +102,26 @@ def build_sales_trend_for_user(
     except SpApiRequestError as exc:
         raise SalesTrendError(str(exc)) from exc
 
-    current_days = sorted(current_buckets.keys())
-    previous_days = sorted(previous_buckets.keys())
+    current_days = sorted(current_sales.keys())
+    previous_days = sorted(previous_sales.keys())
     points = []
     for idx, day in enumerate(current_days):
-        prev_amount = 0.0
-        if idx < len(previous_days):
-            prev_amount = previous_buckets.get(previous_days[idx], 0.0)
+        prev_day = previous_days[idx] if idx < len(previous_days) else None
+        current_amount = current_sales.get(day, 0.0)
+        prev_amount = (
+            previous_sales.get(prev_day, 0.0) if prev_day is not None else 0.0
+        )
         points.append(
             {
                 "date": _format_point_label(day),
-                "netSales": _to_chart_units(current_buckets.get(day, 0.0), currency),
+                "netSales": _to_chart_units(current_amount, currency),
+                "netSalesAmount": round(current_amount, 2),
                 "previousPeriod": _to_chart_units(prev_amount, currency),
+                "previousPeriodAmount": round(prev_amount, 2),
+                "orderCount": current_orders.get(day, 0),
+                "previousPeriodOrderCount": (
+                    previous_orders.get(prev_day, 0) if prev_day is not None else 0
+                ),
             }
         )
 

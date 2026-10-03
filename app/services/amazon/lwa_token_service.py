@@ -10,7 +10,6 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-LWA_TOKEN_URL = "https://api.amazon.com/auth/o2/token"
 LWA_REQUEST_TIMEOUT_SECONDS = 30.0
 LWA_TOKEN_CONTENT_TYPE = "application/x-www-form-urlencoded;charset=UTF-8"
 
@@ -30,6 +29,10 @@ class LwaTokenExchangeResult(TypedDict):
     expires_in: int
 
 
+def _lwa_token_url() -> str:
+    return (settings.amazon_lwa_token_url or "https://api.amazon.com/auth/o2/token").strip()
+
+
 def _require_lwa_config() -> tuple[str, str, str]:
     client_id = (settings.amazon_client_id or "").strip()
     client_secret = (settings.amazon_client_secret or "").strip()
@@ -40,7 +43,7 @@ def _require_lwa_config() -> tuple[str, str, str]:
     if not client_secret:
         missing.append("AMAZON_CLIENT_SECRET")
     if not redirect_uri:
-        missing.append("AMAZON_REDIRECT_URI")
+        missing.append("AMAZON_REDIRECT_URI or AMAZON_LOGIN_URI")
     if missing:
         raise LwaConfigurationError(", ".join(missing))
     return client_id, client_secret, redirect_uri
@@ -85,7 +88,7 @@ def exchange_authorization_code(spapi_oauth_code: str) -> LwaTokenExchangeResult
     try:
         with httpx.Client(timeout=LWA_REQUEST_TIMEOUT_SECONDS) as client:
             response = client.post(
-                LWA_TOKEN_URL,
+                _lwa_token_url(),
                 content=body.encode("utf-8"),
                 headers={"Content-Type": LWA_TOKEN_CONTENT_TYPE},
             )
@@ -129,7 +132,7 @@ def refresh_lwa_access_token(refresh_token: str) -> str:
     try:
         with httpx.Client(timeout=LWA_REQUEST_TIMEOUT_SECONDS) as client:
             response = client.post(
-                LWA_TOKEN_URL,
+                _lwa_token_url(),
                 content=body.encode("utf-8"),
                 headers={"Content-Type": LWA_TOKEN_CONTENT_TYPE},
             )

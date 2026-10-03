@@ -12,11 +12,13 @@ from botocore.awsrequest import AWSRequest
 from botocore.credentials import Credentials
 
 from app.config import settings
+from app.services.amazon.amazon_credentials import sp_api_iam_signing_configured
 
 logger = logging.getLogger(__name__)
 
 SP_API_TIMEOUT_SECONDS = 45.0
 USER_AGENT = "SympleOne/1.0 (Language=Python)"
+_iam_signing_hint_logged = False
 
 
 class SpApiConfigurationError(Exception):
@@ -33,10 +35,7 @@ def _sign_headers(method: str, url: str, headers: dict[str, str], host: str) -> 
     region = (settings.amazon_sp_api_aws_region or "eu-west-1").strip()
 
     if not access_key or not secret_key:
-        logger.warning(
-            "AMAZON_SP_API_AWS_ACCESS_KEY_ID / AMAZON_SP_API_AWS_SECRET_ACCESS_KEY not set; "
-            "SP-API request may be rejected by Amazon"
-        )
+        # OAuth (CLIENT_ID / CLIENT_SECRET / LWA token) is enough for many SP-API calls.
         return headers
 
     headers = {**headers, "host": host}
@@ -71,6 +70,19 @@ def sp_api_get(
         raise SpApiRequestError("Amazon sales data is temporarily unavailable") from exc
 
     if response.status_code != 200:
+        global _iam_signing_hint_logged
+        if (
+            response.status_code in (401, 403)
+            and not sp_api_iam_signing_configured()
+            and not _iam_signing_hint_logged
+        ):
+            _iam_signing_hint_logged = True
+            logger.warning(
+                "SP-API returned %s without IAM signing keys. Add IAM user keys as "
+                "AMAZON_SP_API_AWS_ACCESS_KEY_ID + AMAZON_SP_API_AWS_SECRET_ACCESS_KEY "
+                "(or AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY) from Developer Central.",
+                response.status_code,
+            )
         logger.warning(
             "SP-API GET %s failed status=%s body=%s",
             path,

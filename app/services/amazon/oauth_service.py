@@ -46,7 +46,7 @@ def _require_amazon_connect_config() -> None:
     if not settings.amazon_app_id:
         missing.append("AMAZON_APP_ID")
     if not settings.amazon_redirect_uri:
-        missing.append("AMAZON_REDIRECT_URI")
+        missing.append("AMAZON_REDIRECT_URI or AMAZON_LOGIN_URI")
     if missing:
         raise AmazonOAuthNotConfiguredError(", ".join(missing))
 

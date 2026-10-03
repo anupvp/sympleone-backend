@@ -8,11 +8,12 @@ from app.config import settings
 from app.services.amazon.lwa_token_service import (
     LWA_REQUEST_TIMEOUT_SECONDS,
     LWA_TOKEN_CONTENT_TYPE,
-    LWA_TOKEN_URL,
     LwaConfigurationError,
     LwaTokenExchangeError,
     exchange_authorization_code,
 )
+
+DEFAULT_LWA_TOKEN_URL = "https://api.amazon.com/auth/o2/token"
 
 AUTH_CODE = "Atza|SpApiAuthCodeExample"
 REDIRECT_URI = "https://sympleone-api.onrender.com/api/amazon/callback"
@@ -66,7 +67,7 @@ def test_successful_authorization_code_exchange() -> None:
         ]
     ).encode("utf-8")
     post.assert_called_once_with(
-        LWA_TOKEN_URL,
+        DEFAULT_LWA_TOKEN_URL,
         content=expected_body,
         headers={"Content-Type": LWA_TOKEN_CONTENT_TYPE},
     )
