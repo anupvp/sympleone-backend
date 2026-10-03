@@ -7,7 +7,15 @@ from app.core.permissions import user_policy_codes
 from app.core.security import create_access_token, verify_password
 from app.database import get_db
 from app.models import User, UserStatus
-from app.schemas.auth import AuthUserOut, LoginRequest, LoginResponse, MeResponse
+from app.schemas.auth import (
+    AuthUserOut,
+    ChangePasswordRequest,
+    ChangePasswordResponse,
+    LoginRequest,
+    LoginResponse,
+    MeResponse,
+)
+from app.services.users import update_user_fields
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -49,3 +57,23 @@ def me(user: User = Depends(get_current_user), db: Session = Depends(get_db)) ->
 @router.post("/logout")
 def logout() -> dict[str, str]:
     return {"message": "Logged out"}
+
+
+@router.post("/change-password", response_model=ChangePasswordResponse)
+def change_password(
+    body: ChangePasswordRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ChangePasswordResponse:
+    if not verify_password(body.current_password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password is incorrect",
+        )
+    if body.current_password == body.new_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New password must be different from the current password",
+        )
+    update_user_fields(db, user, password=body.new_password)
+    return ChangePasswordResponse(message="Password updated")

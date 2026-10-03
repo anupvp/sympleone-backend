@@ -14,6 +14,22 @@ from app.models import AmazonAppstoreOAuthSession, AmazonSellerAuthorization, Am
 logger = logging.getLogger(__name__)
 
 
+def find_active_connection_for_user(
+    db: Session,
+    user_id: str,
+) -> AmazonSellerAuthorization | None:
+    stmt = (
+        select(AmazonSellerAuthorization)
+        .where(
+            AmazonSellerAuthorization.user_id == user_id,
+            AmazonSellerAuthorization.status == AmazonConnectionStatus.ACTIVE,
+        )
+        .order_by(AmazonSellerAuthorization.last_authorized_at.desc())
+        .limit(1)
+    )
+    return db.execute(stmt).scalar_one_or_none()
+
+
 def find_seller_connection(
     db: Session,
     *,

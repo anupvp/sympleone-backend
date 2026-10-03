@@ -42,6 +42,22 @@ class Settings(BaseSettings):
         default=None,
         validation_alias="AMAZON_OAUTH_FRONTEND_CALLBACK_URL",
     )
+    amazon_default_marketplace_id: str = Field(
+        default="A21TJRUUN4KGV",
+        validation_alias="AMAZON_DEFAULT_MARKETPLACE_ID",
+    )
+    amazon_sp_api_aws_access_key_id: str | None = Field(
+        default=None,
+        validation_alias="AMAZON_SP_API_AWS_ACCESS_KEY_ID",
+    )
+    amazon_sp_api_aws_secret_access_key: str | None = Field(
+        default=None,
+        validation_alias="AMAZON_SP_API_AWS_SECRET_ACCESS_KEY",
+    )
+    amazon_sp_api_aws_region: str = Field(
+        default="eu-west-1",
+        validation_alias="AMAZON_SP_API_AWS_REGION",
+    )
 
 
 settings = Settings()

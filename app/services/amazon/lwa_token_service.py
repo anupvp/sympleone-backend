@@ -110,3 +110,46 @@ def exchange_authorization_code(spapi_oauth_code: str) -> LwaTokenExchangeResult
         raise LwaTokenExchangeError("token exchange incomplete")
 
     return _normalize_token_response(data)
+
+
+def refresh_lwa_access_token(refresh_token: str) -> str:
+    """
+    Exchange a refresh token for a short-lived SP-API access token.
+
+    POST https://api.amazon.com/auth/o2/token (grant_type=refresh_token)
+    """
+    client_id, client_secret, _redirect_uri = _require_lwa_config()
+    form_fields = [
+        ("grant_type", "refresh_token"),
+        ("refresh_token", refresh_token),
+        ("client_id", client_id),
+        ("client_secret", client_secret),
+    ]
+    body = urlencode(form_fields)
+    try:
+        with httpx.Client(timeout=LWA_REQUEST_TIMEOUT_SECONDS) as client:
+            response = client.post(
+                LWA_TOKEN_URL,
+                content=body.encode("utf-8"),
+                headers={"Content-Type": LWA_TOKEN_CONTENT_TYPE},
+            )
+    except httpx.HTTPError as exc:
+        logger.warning("Amazon LWA refresh request failed: %s", type(exc).__name__)
+        raise LwaTokenExchangeError("token refresh unavailable") from exc
+
+    if response.status_code != 200:
+        logger.warning("Amazon LWA refresh failed with status=%s", response.status_code)
+        raise LwaTokenExchangeError("token refresh rejected")
+
+    try:
+        data = response.json()
+    except ValueError as exc:
+        raise LwaTokenExchangeError("token refresh incomplete") from exc
+
+    if not isinstance(data, dict):
+        raise LwaTokenExchangeError("token refresh incomplete")
+
+    access_token = data.get("access_token")
+    if not access_token:
+        raise LwaTokenExchangeError("token refresh incomplete")
+    return str(access_token)
