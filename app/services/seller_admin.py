@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models import EmployeeSellerAssignment, User, UserKind
@@ -30,6 +30,15 @@ def seller_row_out(db: Session, seller: User) -> dict:
         "is_assigned": len(employees) > 0,
         "assigned_employees": employees,
     }
+
+
+def count_active_sellers(db: Session) -> int:
+    total = db.scalar(
+        select(func.count())
+        .select_from(User)
+        .where(User.kind == UserKind.SELLER, User.deleted_at.is_(None))
+    )
+    return int(total or 0)
 
 
 def list_sellers_for_admin(db: Session) -> list[dict]:
