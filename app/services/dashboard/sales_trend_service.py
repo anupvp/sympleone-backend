@@ -55,11 +55,13 @@ def build_sales_trend_for_user(
     marketplace_id: str | None,
     date_from: str | None,
     date_to: str | None,
+    seller: User | None = None,
 ) -> dict:
-    if user.kind != UserKind.SELLER:
+    subject = seller if seller is not None else user
+    if subject.kind != UserKind.SELLER:
         raise SalesTrendError("Sales trend is only available for seller accounts")
 
-    connection = find_active_connection_for_user(db, user.id)
+    connection = find_active_connection_for_user(db, subject.id)
     if connection is None:
         raise SalesTrendError(
             "Connect your Amazon seller account before viewing sales trend"

@@ -82,6 +82,7 @@ def update_user_fields(
     full_name: str | None = None,
     password: str | None = None,
     role_ids: list[str] | None = None,
+    is_paid: bool | None = None,
 ) -> User:
     if email and email != user.email:
         clash = db.execute(select(User.id).where(User.email == email)).first()
@@ -94,6 +95,8 @@ def update_user_fields(
         user.hashed_password = hash_password(password)
     if role_ids is not None:
         _sync_user_roles(db, user, role_ids)
+    if is_paid is not None and user.kind == UserKind.SELLER:
+        user.is_paid = is_paid
     db.commit()
     db.refresh(user)
     return user

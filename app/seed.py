@@ -147,9 +147,11 @@ def _ensure_user_columns() -> None:
     if "users" not in insp.get_table_names():
         return
     columns = {col["name"] for col in insp.get_columns("users")}
-    if "deleted_at" not in columns:
-        with engine.begin() as conn:
+    with engine.begin() as conn:
+        if "deleted_at" not in columns:
             conn.execute(text("ALTER TABLE users ADD COLUMN deleted_at DATETIME"))
+        if "is_paid" not in columns:
+            conn.execute(text("ALTER TABLE users ADD COLUMN is_paid BOOLEAN DEFAULT 0"))
 
 
 def run_seed() -> None:

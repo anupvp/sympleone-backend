@@ -5,7 +5,8 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user
 from app.database import get_db
-from app.models import User
+from app.models import User, UserKind
+from app.services.dashboard.context import resolve_dashboard_seller
 from app.schemas.dashboard import (
     AlertActionItemOut,
     MarketplaceRowOut,
@@ -30,6 +31,16 @@ def _empty_profitability() -> ProfitabilityOut:
     )
 
 
+def _dashboard_seller(
+    user: User,
+    db: Session,
+    sellerId: str | None,
+) -> User | None:
+    if user.kind == UserKind.SELLER:
+        return None
+    return resolve_dashboard_seller(db, user, sellerId)
+
+
 @router.get("/sales-trend", response_model=SalesTrendOut)
 def get_sales_trend(
     user: User = Depends(get_current_user),
@@ -38,6 +49,7 @@ def get_sales_trend(
     marketplaceId: str = Query(default="all"),
     dateFrom: str | None = Query(default=None),
     dateTo: str | None = Query(default=None),
+    sellerId: str | None = Query(default=None),
 ) -> SalesTrendOut:
     del accountId  # reserved for multi-account sellers
     try:
@@ -47,6 +59,7 @@ def get_sales_trend(
             marketplace_id=marketplaceId,
             date_from=dateFrom,
             date_to=dateTo,
+            seller=_dashboard_seller(user, db, sellerId),
         )
         return SalesTrendOut(**payload)
     except SalesTrendError as exc:
