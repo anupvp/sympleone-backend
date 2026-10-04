@@ -16,6 +16,7 @@ from app.schemas.dashboard import (
     StatCardOut,
 )
 from app.services.dashboard.sales_trend_service import SalesTrendError, build_sales_trend_for_user
+from app.services.dashboard.stats_service import DashboardStatsError, build_dashboard_stats_for_user
 
 logger = logging.getLogger(__name__)
 
@@ -77,9 +78,36 @@ def get_sales_trend(
 
 @router.get("/stats", response_model=list[StatCardOut])
 def get_dashboard_stats(
-    _: User = Depends(get_current_user),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    accountId: str = Query(default="all"),
+    marketplaceId: str = Query(default="all"),
+    dateFrom: str | None = Query(default=None),
+    dateTo: str | None = Query(default=None),
+    sellerId: str | None = Query(default=None),
 ) -> list[StatCardOut]:
-    return []
+    del accountId  # reserved for multi-account sellers
+    try:
+        cards = build_dashboard_stats_for_user(
+            db,
+            user,
+            marketplace_id=marketplaceId,
+            date_from=dateFrom,
+            date_to=dateTo,
+            seller=_dashboard_seller(user, db, sellerId),
+        )
+        return [StatCardOut(**card) for card in cards]
+    except DashboardStatsError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    except Exception:
+        logger.exception("Failed to build dashboard stats for user_id=%s", user.id)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Could not load dashboard stats from Amazon",
+        ) from None
 
 
 @router.get("/profitability", response_model=ProfitabilityOut)
