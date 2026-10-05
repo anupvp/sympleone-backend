@@ -5,7 +5,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import amazon, auth, dashboard, legal_pages, public_stats, scope
-from app.api.admin import employees, groups, roles, sellers
+from app.api import employee_portal
+from app.api.admin import access_requests, employees, groups, roles, sellers
 from app.config import settings
 from app.middleware.admin_auth import AdminAuthMiddleware
 from app.seed import run_seed
@@ -55,6 +56,8 @@ app.include_router(employees.router, prefix=api)
 app.include_router(sellers.router, prefix=api)
 app.include_router(groups.router, prefix=api)
 app.include_router(roles.router, prefix=api)
+app.include_router(access_requests.router, prefix=api)
+app.include_router(employee_portal.router, prefix=api)
 app.include_router(legal_pages.router)
 
 

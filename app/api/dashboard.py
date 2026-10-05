@@ -16,6 +16,7 @@ from app.schemas.dashboard import (
     StatCardOut,
 )
 from app.services.dashboard.sales_trend_service import SalesTrendError, build_sales_trend_for_user
+from app.services.dashboard.alerts_service import build_dashboard_alerts
 from app.services.dashboard.stats_service import DashboardStatsError, build_dashboard_stats_for_user
 
 logger = logging.getLogger(__name__)
@@ -119,9 +120,11 @@ def get_profitability(
 
 @router.get("/alerts", response_model=list[AlertActionItemOut])
 def get_alerts(
-    _: User = Depends(get_current_user),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ) -> list[AlertActionItemOut]:
-    return []
+    items = build_dashboard_alerts(db, user)
+    return [AlertActionItemOut(**item) for item in items]
 
 
 @router.get("/marketplaces", response_model=list[MarketplaceRowOut])

@@ -8,6 +8,7 @@ from app.models.amazon_seller_auth import (
 AmazonConnection = AmazonSellerAuthorization
 from app.models.amazon_oauth import AmazonOAuthState
 from app.models.assignment import EmployeeSellerAssignment
+from app.models.seller_access_request import SellerAccessRequest, SellerAccessRequestStatus
 from app.models.group import Group, GroupMember, GroupMemberKind
 from app.models.rbac import Policy, Role, RolePolicy, UserRole
 from app.models.user import User, UserKind, UserStatus
@@ -24,6 +25,8 @@ __all__ = [
     "GroupMember",
     "GroupMemberKind",
     "EmployeeSellerAssignment",
+    "SellerAccessRequest",
+    "SellerAccessRequestStatus",
     "AmazonOAuthState",
     "AmazonAppstoreOAuthSession",
     "AmazonSellerAuthorization",

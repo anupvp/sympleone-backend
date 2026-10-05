@@ -50,6 +50,8 @@ class StatCardOut(BaseModel):
 
 class AlertActionItemOut(BaseModel):
     id: str
+    category: str
+    categoryLabel: str
     count: int
     title: str
     tone: str

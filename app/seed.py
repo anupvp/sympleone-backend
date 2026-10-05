@@ -152,6 +152,12 @@ def _ensure_user_columns() -> None:
             conn.execute(text("ALTER TABLE users ADD COLUMN deleted_at DATETIME"))
         if "is_paid" not in columns:
             conn.execute(text("ALTER TABLE users ADD COLUMN is_paid BOOLEAN DEFAULT 0"))
+        if "employee_code" not in columns:
+            conn.execute(text("ALTER TABLE users ADD COLUMN employee_code VARCHAR(64)"))
+        if "location" not in columns:
+            conn.execute(text("ALTER TABLE users ADD COLUMN location VARCHAR(255)"))
+        if "manager_id" not in columns:
+            conn.execute(text("ALTER TABLE users ADD COLUMN manager_id VARCHAR(36)"))
 
 
 def run_seed() -> None:
