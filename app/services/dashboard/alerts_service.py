@@ -96,6 +96,15 @@ def build_dashboard_alerts(db: Session, user: User) -> list[dict]:
                     href="/admin/sellers",
                 ),
                 _item(
+                    id="account-health-issues",
+                    category="account_health",
+                    category_label="Account health",
+                    count=3,
+                    title="Account health issues",
+                    tone="red",
+                    href="/dashboard",
+                ),
+                _item(
                     id="policy-violation",
                     category="risk",
                     category_label="Account risk",
@@ -103,6 +112,15 @@ def build_dashboard_alerts(db: Session, user: User) -> list[dict]:
                     title="Policy violations by sellers",
                     tone="red",
                     href="/admin/sellers",
+                ),
+                _item(
+                    id="payment-hold",
+                    category="account_health",
+                    category_label="Account health",
+                    count=2,
+                    title="Payment holds",
+                    tone="red",
+                    href="/dashboard",
                 ),
                 _item(
                     id="low-inventory",
@@ -130,6 +148,33 @@ def build_dashboard_alerts(db: Session, user: User) -> list[dict]:
         items.extend(
             [
                 _item(
+                    id="account-health-issues",
+                    category="account_health",
+                    category_label="Account health",
+                    count=1,
+                    title="Account health issues on assigned sellers",
+                    tone="red",
+                    href="/dashboard",
+                ),
+                _item(
+                    id="policy-violation",
+                    category="account_health",
+                    category_label="Account health",
+                    count=0,
+                    title="Policy violations",
+                    tone="red",
+                    href="/dashboard",
+                ),
+                _item(
+                    id="payment-hold",
+                    category="account_health",
+                    category_label="Account health",
+                    count=1,
+                    title="Payment holds",
+                    tone="red",
+                    href="/dashboard",
+                ),
+                _item(
                     id="low-inventory",
                     category="inventory",
                     category_label="Inventory",
@@ -154,6 +199,33 @@ def build_dashboard_alerts(db: Session, user: User) -> list[dict]:
     # Seller portal
     items.extend(
         [
+            _item(
+                id="account-health-issues",
+                category="account_health",
+                category_label="Account health",
+                count=1,
+                title="Account health issues",
+                tone="red",
+                href="/dashboard",
+            ),
+            _item(
+                id="policy-violation",
+                category="account_health",
+                category_label="Account health",
+                count=0,
+                title="Policy violations",
+                tone="red",
+                href="/dashboard",
+            ),
+            _item(
+                id="payment-hold",
+                category="account_health",
+                category_label="Account health",
+                count=1,
+                title="Payment hold",
+                tone="red",
+                href="/dashboard",
+            ),
             _item(
                 id="low-inventory",
                 category="inventory",
