@@ -58,6 +58,17 @@ class AlertActionItemOut(BaseModel):
     href: str | None = None
 
 
+class AccountHealthMetricOut(BaseModel):
+    id: str
+    label: str
+    score: float
+    status: str
+
+
+class AccountHealthOut(BaseModel):
+    metrics: list[AccountHealthMetricOut]
+
+
 class MarketplaceRowOut(BaseModel):
     id: str
     name: str

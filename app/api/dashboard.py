@@ -8,6 +8,7 @@ from app.database import get_db
 from app.models import User, UserKind
 from app.services.dashboard.context import resolve_dashboard_seller
 from app.schemas.dashboard import (
+    AccountHealthOut,
     AlertActionItemOut,
     MarketplaceRowOut,
     ProfitabilityOut,
@@ -15,6 +16,7 @@ from app.schemas.dashboard import (
     SalesTrendOut,
     StatCardOut,
 )
+from app.services.dashboard.account_health_service import build_account_health_for_user
 from app.services.dashboard.sales_trend_service import SalesTrendError, build_sales_trend_for_user
 from app.services.dashboard.alerts_service import build_dashboard_alerts
 from app.services.dashboard.stats_service import DashboardStatsError, build_dashboard_stats_for_user
@@ -116,6 +118,15 @@ def get_profitability(
     _: User = Depends(get_current_user),
 ) -> ProfitabilityOut:
     return _empty_profitability()
+
+
+@router.get("/account-health", response_model=AccountHealthOut)
+def get_account_health(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> AccountHealthOut:
+    payload = build_account_health_for_user(db, user)
+    return AccountHealthOut(**payload)
 
 
 @router.get("/alerts", response_model=list[AlertActionItemOut])
