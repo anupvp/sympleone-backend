@@ -24,4 +24,5 @@ class OrderRowOut(BaseModel):
 
 class OrdersListOut(BaseModel):
     orders: list[OrderRowOut] = Field(default_factory=list)
+    created_after: str | None = None
     created_before: str | None = None

@@ -14,14 +14,15 @@ logger = logging.getLogger(__name__)
 ORDERS_PATH = "/orders/v0/orders"
 
 
-def _iso_created_after(d: date) -> str:
-    return datetime(d.year, d.month, d.day, 0, 0, 0, tzinfo=UTC).strftime(
+def created_after_from_start_date(d: date) -> str:
+    """Matches SP-API Postman pattern: start date at 23:59:59Z."""
+    return datetime(d.year, d.month, d.day, 23, 59, 59, tzinfo=UTC).strftime(
         "%Y-%m-%dT%H:%M:%SZ"
     )
 
 
-def _iso_created_before_exclusive(end: date) -> str:
-    """SP-API CreatedBefore is exclusive; use start of day after `end`."""
+def created_before_from_end_date(end: date) -> str:
+    """Exclusive upper bound: 00:00:00Z on the day after `end`."""
     next_day = end + timedelta(days=1)
     return datetime(next_day.year, next_day.month, next_day.day, 0, 0, 0, tzinfo=UTC).strftime(
         "%Y-%m-%dT%H:%M:%SZ"
@@ -32,14 +33,14 @@ def fetch_orders(
     *,
     access_token: str,
     marketplace_id: str,
-    start: date,
-    end: date,
+    created_after: str,
+    created_before: str,
 ) -> list[dict[str, Any]]:
     host = sp_api_host_for_marketplace(marketplace_id)
     query: dict[str, str] = {
         "MarketplaceIds": marketplace_id,
-        "CreatedAfter": _iso_created_after(start),
-        "CreatedBefore": _iso_created_before_exclusive(end),
+        "CreatedAfter": created_after,
+        "CreatedBefore": created_before,
     }
 
     orders: list[dict[str, Any]] = []

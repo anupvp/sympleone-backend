@@ -10,7 +10,11 @@ from app.config import settings
 from app.core.secret_storage import decrypt_secret
 from app.models import User, UserKind
 from app.services.amazon.lwa_token_service import LwaTokenExchangeError, refresh_lwa_access_token
-from app.services.amazon.orders_api import fetch_orders
+from app.services.amazon.orders_api import (
+    created_after_from_start_date,
+    created_before_from_end_date,
+    fetch_orders,
+)
 from app.services.amazon.seller_connection_service import find_active_connection_for_user
 from app.services.amazon.sp_api_client import SpApiRequestError
 from app.services.dashboard.stats_service import _parse_filter_date
@@ -50,8 +54,10 @@ def list_orders_for_user(
     user: User,
     *,
     marketplace_id: str | None,
-    date_from: str | None,
-    date_to: str | None,
+    created_after: str | None = None,
+    created_before: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
     seller: User | None = None,
 ) -> dict:
     subject = seller if seller is not None else user
@@ -64,12 +70,20 @@ def list_orders_for_user(
             "Connect your Amazon seller account before viewing orders"
         )
 
-    today = datetime.now().date()
-    default_start = today.replace(day=1)
-    start = _parse_filter_date(date_from or "", default_start)
-    end = _parse_filter_date(date_to or "", today)
-    if end < start:
-        start, end = end, start
+    created_after_val = (created_after or "").strip()
+    created_before_val = (created_before or "").strip()
+
+    if not created_after_val or not created_before_val:
+        today = datetime.now().date()
+        default_start = today.replace(day=1)
+        start = _parse_filter_date(date_from or "", default_start)
+        end = _parse_filter_date(date_to or "", today)
+        if end < start:
+            start, end = end, start
+        if not created_after_val:
+            created_after_val = created_after_from_start_date(start)
+        if not created_before_val:
+            created_before_val = created_before_from_end_date(end)
 
     marketplace = (marketplace_id or "").strip()
     if not marketplace or marketplace.lower() == "all":
@@ -87,8 +101,8 @@ def list_orders_for_user(
         raw_orders = fetch_orders(
             access_token=access_token,
             marketplace_id=marketplace,
-            start=start,
-            end=end,
+            created_after=created_after_val,
+            created_before=created_before_val,
         )
     except SpApiRequestError as exc:
         raise OrdersServiceError(str(exc)) from exc
@@ -98,5 +112,6 @@ def list_orders_for_user(
 
     return {
         "orders": orders,
-        "created_before": None,
+        "created_after": created_after_val,
+        "created_before": created_before_val,
     }

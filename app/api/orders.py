@@ -30,6 +30,8 @@ def get_orders(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
     marketplace_id: str = Query(default="all", alias="marketplaceId"),
+    created_after: str | None = Query(default=None, alias="CreatedAfter"),
+    created_before: str | None = Query(default=None, alias="CreatedBefore"),
     date_from: str | None = Query(default=None, alias="dateFrom"),
     date_to: str | None = Query(default=None, alias="dateTo"),
     seller_id: str | None = Query(default=None, alias="sellerId"),
@@ -40,6 +42,8 @@ def get_orders(
             db,
             user,
             marketplace_id=marketplace_id,
+            created_after=created_after,
+            created_before=created_before,
             date_from=date_from,
             date_to=date_to,
             seller=seller,
@@ -58,5 +62,6 @@ def get_orders(
 
     return OrdersListOut(
         orders=[OrderRowOut(**row) for row in payload["orders"]],
+        created_after=payload.get("created_after"),
         created_before=payload.get("created_before"),
     )
