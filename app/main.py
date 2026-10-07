@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import amazon, auth, dashboard, legal_pages, public_stats, scope
+from app.api import amazon, auth, dashboard, legal_pages, orders, public_stats, scope
 from app.api import employee_portal
 from app.api.admin import access_requests, employees, groups, roles, sellers
 from app.config import settings
@@ -50,6 +50,7 @@ api = settings.api_prefix
 app.include_router(auth.router, prefix=api)
 app.include_router(public_stats.router, prefix=api)
 app.include_router(dashboard.router, prefix=api)
+app.include_router(orders.router, prefix=api)
 app.include_router(amazon.router, prefix=api)
 app.include_router(scope.router, prefix=api)
 app.include_router(employees.router, prefix=api)
