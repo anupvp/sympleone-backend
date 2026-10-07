@@ -21,11 +21,13 @@ def _link_seller_amazon(db: Session, seller: User) -> None:
     db.commit()
 
 
+@patch("app.services.dashboard.sales_trend_service.fetch_orders")
 @patch("app.services.dashboard.sales_trend_service.fetch_order_metrics")
 @patch("app.services.dashboard.sales_trend_service.refresh_lwa_access_token")
 def test_sales_trend_for_seller(
     mock_refresh,
     mock_metrics,
+    mock_orders,
     client: TestClient,
     db: Session,
     seller_user: User,
@@ -42,6 +44,26 @@ def test_sales_trend_for_seller(
             {"2026-08-01": 10, "2026-08-02": 11},
             "INR",
         ),
+    ]
+    mock_orders.return_value = [
+        {
+            "AmazonOrderId": "1",
+            "OrderStatus": "Shipped",
+            "OrderTotal": {"Amount": "1000", "CurrencyCode": "INR"},
+            "ShippingAddress": {"StateOrRegion": "Maharashtra", "City": "Pune"},
+        },
+        {
+            "AmazonOrderId": "2",
+            "OrderStatus": "Shipped",
+            "OrderTotal": {"Amount": "500.5", "CurrencyCode": "INR"},
+            "ShippingAddress": {"StateOrRegion": "MAHARASHTRA"},
+        },
+        {
+            "AmazonOrderId": "3",
+            "OrderStatus": "Canceled",
+            "OrderTotal": {"Amount": "999", "CurrencyCode": "INR"},
+            "ShippingAddress": {"StateOrRegion": "Maharashtra"},
+        },
     ]
     _link_seller_amazon(db, seller_user)
 
@@ -63,6 +85,9 @@ def test_sales_trend_for_seller(
     assert data["points"][0]["orderCount"] == 12
     assert data["points"][0]["previousPeriodOrderCount"] == 10
     assert data["points"][0]["netSalesAmount"] == 500_000.0
+    assert data["destinations"] == [
+        {"state": "Maharashtra", "amount": 1500.5, "orderCount": 2}
+    ]
 
 
 def test_sales_trend_requires_amazon_connection(

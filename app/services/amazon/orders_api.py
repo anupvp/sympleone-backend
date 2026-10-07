@@ -13,6 +13,26 @@ logger = logging.getLogger(__name__)
 
 ORDERS_PATH = "/orders/v0/orders"
 
+# SP-API: CreatedBefore must be at least ~2 minutes before request time.
+_CREATED_BEFORE_BUFFER = timedelta(minutes=3)
+
+
+def normalize_created_before(created_before: str) -> str:
+    """Cap CreatedBefore so it is not in the future (required by getOrders)."""
+    try:
+        dt = datetime.fromisoformat(created_before.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=UTC)
+        else:
+            dt = dt.astimezone(UTC)
+    except ValueError:
+        return created_before
+
+    latest = datetime.now(UTC) - _CREATED_BEFORE_BUFFER
+    if dt > latest:
+        return latest.strftime("%Y-%m-%dT%H:%M:%SZ")
+    return created_before
+
 
 def created_after_from_start_date(d: date) -> str:
     """Matches SP-API Postman pattern: start date at 23:59:59Z."""
@@ -37,6 +57,7 @@ def fetch_orders(
     created_before: str,
 ) -> list[dict[str, Any]]:
     host = sp_api_host_for_marketplace(marketplace_id)
+    created_before = normalize_created_before(created_before)
     query: dict[str, str] = {
         "MarketplaceIds": marketplace_id,
         "CreatedAfter": created_after,

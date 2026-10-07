@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any
 from urllib.parse import urlencode
@@ -27,6 +28,31 @@ class SpApiConfigurationError(Exception):
 
 class SpApiRequestError(Exception):
     """SP-API returned an error or could not be reached."""
+
+    def __init__(self, message: str, *, status_code: int | None = None) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+
+
+def _extract_sp_api_error(body: str) -> str | None:
+    try:
+        data = json.loads(body)
+    except ValueError:
+        return body[:240] if body else None
+    errors = data.get("errors")
+    if isinstance(errors, list) and errors:
+        parts: list[str] = []
+        for err in errors[:3]:
+            if isinstance(err, dict):
+                code = err.get("code") or err.get("Code")
+                msg = err.get("message") or err.get("Message")
+                if code and msg:
+                    parts.append(f"{code}: {msg}")
+                elif msg:
+                    parts.append(str(msg))
+        if parts:
+            return "; ".join(parts)
+    return body[:240] if body else None
 
 
 def _sign_headers(method: str, url: str, headers: dict[str, str], host: str) -> dict[str, str]:
@@ -67,7 +93,7 @@ def sp_api_get(
             response = client.get(url, headers=signed)
     except httpx.HTTPError as exc:
         logger.warning("SP-API request failed: %s", type(exc).__name__)
-        raise SpApiRequestError("Amazon sales data is temporarily unavailable") from exc
+        raise SpApiRequestError("Amazon API is temporarily unavailable") from exc
 
     if response.status_code != 200:
         global _iam_signing_hint_logged
@@ -83,13 +109,15 @@ def sp_api_get(
                 "(or AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY) from Developer Central.",
                 response.status_code,
             )
+        detail = _extract_sp_api_error(response.text)
         logger.warning(
             "SP-API GET %s failed status=%s body=%s",
             path,
             response.status_code,
             response.text[:500],
         )
-        raise SpApiRequestError("Amazon sales data could not be loaded")
+        message = detail or f"Amazon API request failed (HTTP {response.status_code})"
+        raise SpApiRequestError(message, status_code=response.status_code)
 
     try:
         data = response.json()

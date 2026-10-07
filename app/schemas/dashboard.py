@@ -11,10 +11,19 @@ class SalesTrendPointOut(BaseModel):
     previousPeriodOrderCount: int
 
 
+class SalesDestinationOut(BaseModel):
+    """Ship-to state from the same period as the sales trend (order totals)."""
+
+    state: str
+    amount: float
+    orderCount: int
+
+
 class SalesTrendOut(BaseModel):
     frequency: str
     currencySymbol: str
     points: list[SalesTrendPointOut]
+    destinations: list[SalesDestinationOut] = Field(default_factory=list)
 
 
 class ProfitabilitySegmentOut(BaseModel):

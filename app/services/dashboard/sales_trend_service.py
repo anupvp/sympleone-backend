@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import date, datetime
 
 from sqlalchemy.orm import Session
@@ -10,9 +11,17 @@ from app.config import settings
 from app.core.secret_storage import decrypt_secret
 from app.models import User, UserKind
 from app.services.amazon.lwa_token_service import LwaTokenExchangeError, refresh_lwa_access_token
+from app.services.amazon.orders_api import (
+    created_after_from_start_date,
+    created_before_from_end_date,
+    fetch_orders,
+)
 from app.services.amazon.sales_order_metrics import fetch_order_metrics, previous_period
 from app.services.amazon.seller_connection_service import find_active_connection_for_user
 from app.services.amazon.sp_api_client import SpApiRequestError
+
+
+logger = logging.getLogger(__name__)
 
 
 class SalesTrendError(Exception):
@@ -40,6 +49,38 @@ def _format_point_label(iso_day: str) -> str:
         return f"{d.strftime('%b')} {d.day}"
     except ValueError:
         return iso_day
+
+
+def destination_totals(orders: list[dict]) -> list[dict]:
+    """Sum order totals by shipping state (delivery destination)."""
+    buckets: dict[str, dict] = {}
+    for raw in orders:
+        if not isinstance(raw, dict):
+            continue
+        status = str(raw.get("OrderStatus") or "").strip().lower()
+        if status == "canceled":
+            continue
+        ship = raw.get("ShippingAddress") or {}
+        if not isinstance(ship, dict):
+            continue
+        state = str(ship.get("StateOrRegion") or "").strip()
+        if not state:
+            continue
+        total = raw.get("OrderTotal") or {}
+        amount = 0.0
+        if isinstance(total, dict):
+            try:
+                amount = float(total.get("Amount") or 0)
+            except (TypeError, ValueError):
+                amount = 0.0
+        key = state.casefold()
+        row = buckets.get(key)
+        if row is None:
+            row = {"state": state, "amount": 0.0, "orderCount": 0}
+            buckets[key] = row
+        row["amount"] = round(row["amount"] + amount, 2)
+        row["orderCount"] += 1
+    return sorted(buckets.values(), key=lambda r: r["amount"], reverse=True)
 
 
 def _to_chart_units(amount: float, currency: str) -> float:
@@ -104,6 +145,18 @@ def build_sales_trend_for_user(
     except SpApiRequestError as exc:
         raise SalesTrendError(str(exc)) from exc
 
+    destinations: list[dict] = []
+    try:
+        raw_orders = fetch_orders(
+            access_token=access_token,
+            marketplace_id=marketplace,
+            created_after=created_after_from_start_date(start),
+            created_before=created_before_from_end_date(end),
+        )
+        destinations = destination_totals(raw_orders)
+    except SpApiRequestError:
+        logger.warning("Sales trend destinations unavailable; chart data still returned")
+
     current_days = sorted(current_sales.keys())
     previous_days = sorted(previous_sales.keys())
     points = []
@@ -134,4 +187,5 @@ def build_sales_trend_for_user(
         "frequency": frequency,
         "currencySymbol": _CURRENCY_SYMBOLS.get(currency, currency),
         "points": points,
+        "destinations": destinations,
     }
