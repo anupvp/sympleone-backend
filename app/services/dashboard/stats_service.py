@@ -10,6 +10,11 @@ from app.config import settings
 from app.core.secret_storage import decrypt_secret
 from app.models import User, UserKind
 from app.services.amazon.lwa_token_service import LwaTokenExchangeError, refresh_lwa_access_token
+from app.services.amazon.orders_api import (
+    created_after_from_start_date,
+    created_before_from_end_date,
+    fetch_orders,
+)
 from app.services.amazon.sales_order_metrics import fetch_order_metrics, previous_period
 from app.services.amazon.seller_connection_service import find_active_connection_for_user
 from app.services.amazon.sp_api_client import SpApiRequestError
@@ -90,6 +95,22 @@ def _sum_sales(sales_by_day: dict[str, float]) -> float:
     return sum(sales_by_day.values())
 
 
+def _count_orders(orders: list[dict]) -> int:
+    total = 0
+    for raw in orders:
+        if not isinstance(raw, dict):
+            continue
+        status = str(raw.get("OrderStatus") or "").strip().lower()
+        if status in ("canceled", "cancelled"):
+            continue
+        total += 1
+    return total
+
+
+def _format_order_count(count: int) -> str:
+    return f"{count:,}"
+
+
 def build_dashboard_stats_for_user(
     db: Session,
     user: User,
@@ -143,11 +164,26 @@ def build_dashboard_stats_for_user(
             start=prev_start,
             end=prev_end,
         )
+        current_orders_raw = fetch_orders(
+            access_token=access_token,
+            marketplace_id=marketplace,
+            created_after=created_after_from_start_date(start),
+            created_before=created_before_from_end_date(end),
+        )
+        previous_orders_raw = fetch_orders(
+            access_token=access_token,
+            marketplace_id=marketplace,
+            created_after=created_after_from_start_date(prev_start),
+            created_before=created_before_from_end_date(prev_end),
+        )
     except SpApiRequestError as exc:
         raise DashboardStatsError(str(exc)) from exc
 
     current_gmv = _sum_sales(current_sales)
     previous_gmv = _sum_sales(previous_sales)
+    current_orders = _count_orders(current_orders_raw)
+    previous_orders = _count_orders(previous_orders_raw)
+    comparison = _comparison_label(prev_start, prev_end)
 
     return [
         {
@@ -155,8 +191,17 @@ def build_dashboard_stats_for_user(
             "label": "SALES",
             "value": _format_compact_currency(current_gmv, currency),
             "changePercent": _percent_change(current_gmv, previous_gmv),
-            "comparisonLabel": _comparison_label(prev_start, prev_end),
+            "comparisonLabel": comparison,
             "icon": "gmv",
             "accent": "purple",
+        },
+        {
+            "id": "net-sales",
+            "label": "Total Orders",
+            "value": _format_order_count(current_orders),
+            "changePercent": _percent_change(float(current_orders), float(previous_orders)),
+            "comparisonLabel": comparison,
+            "icon": "netSales",
+            "accent": "blue",
         },
     ]
