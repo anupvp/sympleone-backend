@@ -6,7 +6,8 @@ from app.config import settings
 
 _CONNECT_PATH = "/amazon/connect"
 _CALLBACK_PATH = "/amazon/callback"
-_PRODUCTION_ORIGIN = "https://amazon.globalitstaffing.com"
+#_PRODUCTION_ORIGIN = "https://amazon.globalitstaffing.com"
+_PRODUCTION_ORIGIN = "https://sympleone.onrender.com"
 _PRODUCTION_CONNECT = f"{_PRODUCTION_ORIGIN}/amazon/amazon/connect"
 _PRODUCTION_CALLBACK = f"{_PRODUCTION_ORIGIN}/amazon/amazon/callback"
 
