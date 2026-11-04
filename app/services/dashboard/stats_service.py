@@ -15,6 +15,7 @@ from app.services.amazon.orders_api import (
     created_before_from_end_date,
     fetch_orders,
 )
+from app.services.dashboard.net_profit import compute_net_profit
 from app.services.amazon.sales_order_metrics import fetch_order_metrics, previous_period
 from app.services.amazon.seller_connection_service import find_active_connection_for_user
 from app.services.amazon.sp_api_client import SpApiRequestError
@@ -185,6 +186,23 @@ def build_dashboard_stats_for_user(
     previous_orders = _count_orders(previous_orders_raw)
     comparison = _comparison_label(prev_start, prev_end)
 
+    current_profit, current_margin, profit_currency = compute_net_profit(
+        access_token=access_token,
+        marketplace_id=marketplace,
+        start=start,
+        end=end,
+        gross_sales=current_gmv,
+        orders=current_orders_raw,
+    )
+    previous_profit, _, _ = compute_net_profit(
+        access_token=access_token,
+        marketplace_id=marketplace,
+        start=prev_start,
+        end=prev_end,
+        gross_sales=previous_gmv,
+        orders=previous_orders_raw,
+    )
+
     return [
         {
             "id": "gmv",
@@ -203,5 +221,15 @@ def build_dashboard_stats_for_user(
             "comparisonLabel": comparison,
             "icon": "netSales",
             "accent": "blue",
+        },
+        {
+            "id": "profit",
+            "label": "Net Profit",
+            "value": _format_compact_currency(current_profit, profit_currency),
+            "changePercent": _percent_change(current_profit, previous_profit),
+            "comparisonLabel": comparison,
+            "icon": "profit",
+            "accent": "green",
+            "subline": f"{current_margin:.1f}% margin" if current_gmv > 0 else None,
         },
     ]

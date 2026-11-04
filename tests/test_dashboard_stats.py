@@ -20,11 +20,15 @@ def _link_seller_amazon(db: Session, seller: User) -> None:
     db.commit()
 
 
+@patch("app.services.dashboard.stats_service.compute_net_profit")
+@patch("app.services.dashboard.stats_service.fetch_orders")
 @patch("app.services.dashboard.stats_service.fetch_order_metrics")
 @patch("app.services.dashboard.stats_service.refresh_lwa_access_token")
 def test_dashboard_stats_gmv_for_seller(
     mock_refresh,
     mock_metrics,
+    mock_orders,
+    mock_net_profit,
     client: TestClient,
     db: Session,
     seller_user: User,
@@ -33,6 +37,18 @@ def test_dashboard_stats_gmv_for_seller(
     mock_metrics.side_effect = [
         ({"2026-09-01": 4_860_000.0}, {}, "INR"),
         ({"2026-08-01": 4_320_000.0}, {}, "INR"),
+    ]
+    mock_orders.side_effect = [
+        [
+            {"OrderStatus": "Shipped", "AmazonOrderId": "1"},
+            {"OrderStatus": "Shipped", "AmazonOrderId": "2"},
+            {"OrderStatus": "Canceled", "AmazonOrderId": "3"},
+        ],
+        [{"OrderStatus": "Shipped", "AmazonOrderId": "4"}],
+    ]
+    mock_net_profit.side_effect = [
+        (248_910.0, 20.0, "INR"),
+        (216_000.0, 18.0, "INR"),
     ]
     _link_seller_amazon(db, seller_user)
 
@@ -47,13 +63,23 @@ def test_dashboard_stats_gmv_for_seller(
     )
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 1
-    card = data[0]
-    assert card["id"] == "gmv"
-    assert card["label"] == "SALES"
-    assert card["value"] == "₹48.6L"
-    assert card["icon"] == "gmv"
-    assert card["changePercent"] == 12.5
+    assert len(data) == 3
+    gmv = data[0]
+    assert gmv["id"] == "gmv"
+    assert gmv["label"] == "SALES"
+    assert gmv["value"] == "₹48.6L"
+    assert gmv["icon"] == "gmv"
+    assert gmv["changePercent"] == 12.5
+    orders = data[1]
+    assert orders["id"] == "net-sales"
+    assert orders["value"] == "2"
+    assert orders["changePercent"] == 100.0
+    profit = data[2]
+    assert profit["id"] == "profit"
+    assert profit["label"] == "Net Profit"
+    assert profit["value"] == "₹2.5L"
+    assert profit["subline"] == "20.0% margin"
+    assert profit["changePercent"] == 15.2
 
 
 def test_dashboard_stats_requires_amazon_connection(

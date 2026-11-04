@@ -6,6 +6,19 @@ from app.config import settings
 
 _CONNECT_PATH = "/amazon/connect"
 _CALLBACK_PATH = "/amazon/callback"
+_PRODUCTION_ORIGIN = "https://amazon.globalitstaffing.com"
+_PRODUCTION_CONNECT = f"{_PRODUCTION_ORIGIN}/amazon/amazon/connect"
+_PRODUCTION_CALLBACK = f"{_PRODUCTION_ORIGIN}/amazon/amazon/callback"
+
+
+def _use_production_site(url: str) -> str:
+    """The old Render frontend is no longer the public site."""
+    if "sympleone.onrender.com" not in url:
+        return url
+    stripped = url.rstrip("/")
+    if stripped.endswith(_CALLBACK_PATH):
+        return _PRODUCTION_CALLBACK
+    return _PRODUCTION_CONNECT
 
 
 def frontend_oauth_connect_url() -> str:
@@ -14,21 +27,21 @@ def frontend_oauth_connect_url() -> str:
     """
     explicit = (settings.amazon_oauth_success_redirect_url or "").strip().rstrip("/")
     if explicit.endswith(_CONNECT_PATH):
-        return explicit
+        return _use_production_site(explicit)
 
     redirect = (settings.amazon_redirect_uri or "").strip().rstrip("/")
-    if redirect and _CALLBACK_PATH in redirect and "/api/amazon/callback" not in redirect:
-        parsed = urlparse(redirect)
-        return f"{parsed.scheme}://{parsed.netloc}{_CONNECT_PATH}"
+    if (
+        redirect.endswith(_CALLBACK_PATH)
+        and "/api/amazon/callback" not in redirect
+    ):
+        return _use_production_site(f"{redirect[: -len(_CALLBACK_PATH)]}{_CONNECT_PATH}")
 
     if explicit:
         parsed = urlparse(explicit if "://" in explicit else f"https://{explicit}")
         if parsed.path in ("", "/"):
-            return f"{parsed.scheme}://{parsed.netloc}{_CONNECT_PATH}"
-        return f"{explicit}{_CONNECT_PATH}" if not explicit.endswith(_CONNECT_PATH) else explicit
-
-    if redirect and "sympleone.onrender.com" in redirect:
-        return "https://sympleone.onrender.com/amazon/connect"
+            return _use_production_site(f"{parsed.scheme}://{parsed.netloc}{_CONNECT_PATH}")
+        built = explicit if explicit.endswith(_CONNECT_PATH) else f"{explicit}{_CONNECT_PATH}"
+        return _use_production_site(built)
 
     return f"http://localhost:5173{_CONNECT_PATH}"
 
@@ -45,7 +58,7 @@ def frontend_oauth_callback_url() -> str:
 
     redirect = (settings.amazon_redirect_uri or "").strip().rstrip("/")
     if redirect and "/amazon/callback" in redirect and "/api/amazon/callback" not in redirect:
-        return redirect
+        return _use_production_site(redirect)
 
     connect = frontend_oauth_connect_url()
     if connect.endswith(_CONNECT_PATH):

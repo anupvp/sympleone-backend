@@ -8,5 +8,22 @@ from app.services.amazon.oauth_redirect_urls import (
 def test_connect_url_derived_from_frontend_redirect_uri() -> None:
     settings.amazon_redirect_uri = "https://sympleone.onrender.com/amazon/callback"
     settings.amazon_oauth_success_redirect_url = "https://sympleone.onrender.com"
-    assert frontend_oauth_connect_url() == "https://sympleone.onrender.com/amazon/connect"
-    assert frontend_oauth_callback_url() == "https://sympleone.onrender.com/amazon/callback"
+    assert (
+        frontend_oauth_connect_url()
+        == "https://amazon.globalitstaffing.com/amazon/amazon/connect"
+    )
+    assert (
+        frontend_oauth_callback_url()
+        == "https://amazon.globalitstaffing.com/amazon/amazon/callback"
+    )
+
+
+def test_connect_url_keeps_site_prefix() -> None:
+    settings.amazon_redirect_uri = (
+        "https://amazon.globalitstaffing.com/amazon/amazon/callback"
+    )
+    settings.amazon_oauth_success_redirect_url = None
+    assert (
+        frontend_oauth_connect_url()
+        == "https://amazon.globalitstaffing.com/amazon/amazon/connect"
+    )

@@ -55,6 +55,7 @@ class StatCardOut(BaseModel):
     comparisonLabel: str
     icon: str
     accent: str
+    subline: str | None = None
 
 
 class AlertActionItemOut(BaseModel):
