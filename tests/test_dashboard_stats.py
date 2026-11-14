@@ -20,6 +20,7 @@ def _link_seller_amazon(db: Session, seller: User) -> None:
     db.commit()
 
 
+@patch("app.services.dashboard.stats_service.build_active_products_metrics")
 @patch("app.services.dashboard.stats_service.compute_net_profit")
 @patch("app.services.dashboard.stats_service.fetch_orders")
 @patch("app.services.dashboard.stats_service.fetch_order_metrics")
@@ -29,6 +30,7 @@ def test_dashboard_stats_gmv_for_seller(
     mock_metrics,
     mock_orders,
     mock_net_profit,
+    mock_active_products,
     client: TestClient,
     db: Session,
     seller_user: User,
@@ -50,6 +52,7 @@ def test_dashboard_stats_gmv_for_seller(
         (248_910.0, 20.0, "INR"),
         (216_000.0, 18.0, "INR"),
     ]
+    mock_active_products.return_value = (89, 3, 2, 5)
     _link_seller_amazon(db, seller_user)
 
     response = client.get(
@@ -63,7 +66,7 @@ def test_dashboard_stats_gmv_for_seller(
     )
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 3
+    assert len(data) == 4
     gmv = data[0]
     assert gmv["id"] == "gmv"
     assert gmv["label"] == "SALES"
@@ -80,6 +83,12 @@ def test_dashboard_stats_gmv_for_seller(
     assert profit["value"] == "₹2.5L"
     assert profit["subline"] == "20.0% margin"
     assert profit["changePercent"] == 15.2
+    active = data[3]
+    assert active["id"] == "profit-pct"
+    assert active["label"] == "Active Products"
+    assert active["value"] == "89"
+    assert active["subline"] == "5 low in stock"
+    assert active["changePercent"] == 50.0
 
 
 def test_dashboard_stats_requires_amazon_connection(

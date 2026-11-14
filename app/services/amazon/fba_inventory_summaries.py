@@ -42,6 +42,33 @@ def fetch_inventory_summaries(
     return [s for s in summaries if isinstance(s, dict)]
 
 
+LOW_STOCK_QUANTITY_THRESHOLD = 5
+
+
+def count_low_stock_skus(
+    summaries: list[dict[str, Any]],
+    *,
+    threshold: int = LOW_STOCK_QUANTITY_THRESHOLD,
+) -> int:
+    low = 0
+    for row in summaries:
+        details = row.get("inventoryDetails") or {}
+        if not isinstance(details, dict):
+            details = {}
+        fulfillable = details.get("fulfillableQuantity")
+        if fulfillable is None:
+            fulfillable = row.get("totalQuantity")
+        try:
+            qty = int(fulfillable or 0)
+        except (TypeError, ValueError):
+            qty = 0
+        if 0 < qty <= threshold:
+            low += 1
+        elif qty == 0:
+            low += 1
+    return low
+
+
 def count_fulfillable_skus(summaries: list[dict[str, Any]]) -> int:
     count = 0
     for row in summaries:

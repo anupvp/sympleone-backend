@@ -15,6 +15,7 @@ from app.services.amazon.orders_api import (
     created_before_from_end_date,
     fetch_orders,
 )
+from app.services.dashboard.active_products import build_active_products_metrics
 from app.services.dashboard.net_profit import compute_net_profit
 from app.services.amazon.sales_order_metrics import fetch_order_metrics, previous_period
 from app.services.amazon.seller_connection_service import find_active_connection_for_user
@@ -203,6 +204,24 @@ def build_dashboard_stats_for_user(
         orders=previous_orders_raw,
     )
 
+    (
+        buyable_total,
+        new_listings_current,
+        new_listings_previous,
+        low_stock,
+    ) = build_active_products_metrics(
+        access_token=access_token,
+        selling_partner_id=connection.selling_partner_id,
+        marketplace_id=marketplace,
+        start=start,
+        end=end,
+        prev_start=prev_start,
+        prev_end=prev_end,
+    )
+    active_subline: str | None = None
+    if low_stock is not None:
+        active_subline = f"{low_stock:,} low in stock"
+
     return [
         {
             "id": "gmv",
@@ -231,5 +250,17 @@ def build_dashboard_stats_for_user(
             "icon": "profit",
             "accent": "green",
             "subline": f"{current_margin:.1f}% margin" if current_gmv > 0 else None,
+        },
+        {
+            "id": "profit-pct",
+            "label": "Active Products",
+            "value": _format_order_count(buyable_total),
+            "changePercent": _percent_change(
+                float(new_listings_current), float(new_listings_previous)
+            ),
+            "comparisonLabel": comparison,
+            "icon": "profitPercent",
+            "accent": "amber",
+            "subline": active_subline,
         },
     ]
