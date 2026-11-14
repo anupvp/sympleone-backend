@@ -16,6 +16,10 @@ from app.services.amazon.reports_api import (
 )
 from app.services.amazon.seller_connection_service import find_active_connection_for_user
 from app.services.amazon.sp_api_client import SpApiRequestError
+from app.services.dashboard.report_tsv_to_xlsx import (
+    merchant_listings_tsv_to_xlsx,
+    merchant_listings_xlsx_filename,
+)
 
 
 class DashboardExportError(Exception):
@@ -68,16 +72,19 @@ def export_merchant_listings_report_for_user(
         ) from exc
 
     try:
-        content = fetch_merchant_listings_report_file(
+        tsv_bytes = fetch_merchant_listings_report_file(
             access_token=access_token,
             marketplace_id=marketplace,
             start=start,
             end=end,
         )
+        content = merchant_listings_tsv_to_xlsx(tsv_bytes)
     except ReportProcessingError as exc:
         raise DashboardExportError(str(exc)) from exc
     except SpApiRequestError as exc:
         raise DashboardExportError(str(exc)) from exc
+    except ValueError as exc:
+        raise DashboardExportError(f"Could not build Excel file: {exc}") from exc
 
-    filename = f"merchant-listings-{start.isoformat()}-to-{end.isoformat()}.txt"
+    filename = merchant_listings_xlsx_filename(start.isoformat(), end.isoformat())
     return content, filename

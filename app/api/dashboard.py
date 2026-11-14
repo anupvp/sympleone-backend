@@ -155,7 +155,7 @@ def download_dashboard_report(
     disposition = f'attachment; filename="{filename}"'
     return Response(
         content=content,
-        media_type="text/plain; charset=utf-8",
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": disposition},
     )
 
