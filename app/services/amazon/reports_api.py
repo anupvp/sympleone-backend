@@ -74,8 +74,7 @@ def create_report(
         access_token=access_token,
         timeout=SP_API_REPORT_TIMEOUT_SECONDS,
     )
-    row = _unwrap_payload(data)
-    report_id = row.get("reportId")
+    report_id = data.get("reportId") or _unwrap_payload(data).get("reportId")
     if not report_id:
         raise SpApiRequestError("Amazon did not return a report id")
     return str(report_id)

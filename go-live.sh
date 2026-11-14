@@ -118,7 +118,8 @@ $ch = curl_init($url);
 curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_HEADER, true);
-curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+// Merchant reports can take several minutes (create + poll + download).
+curl_setopt($ch, CURLOPT_TIMEOUT, 660);
 $headers = [];
 if (function_exists('getallheaders')) {
     foreach (getallheaders() as $name => $value) {

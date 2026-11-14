@@ -56,7 +56,14 @@ def _extract_sp_api_error(body: str) -> str | None:
     return body[:240] if body else None
 
 
-def _sign_headers(method: str, url: str, headers: dict[str, str], host: str) -> dict[str, str]:
+def _sign_headers(
+    method: str,
+    url: str,
+    headers: dict[str, str],
+    host: str,
+    *,
+    body: bytes | None = None,
+) -> dict[str, str]:
     access_key = (settings.amazon_sp_api_aws_access_key_id or "").strip()
     secret_key = (settings.amazon_sp_api_aws_secret_access_key or "").strip()
     region = (settings.amazon_sp_api_aws_region or "eu-west-1").strip()
@@ -67,7 +74,7 @@ def _sign_headers(method: str, url: str, headers: dict[str, str], host: str) -> 
 
     headers = {**headers, "host": host}
     credentials = Credentials(access_key, secret_key)
-    aws_request = AWSRequest(method=method, url=url, headers=headers)
+    aws_request = AWSRequest(method=method, url=url, headers=headers, data=body)
     SigV4Auth(credentials, "execute-api", region).add_auth(aws_request)
     return dict(aws_request.headers)
 
@@ -78,7 +85,7 @@ def _sp_api_json_response(
     path: str,
     response: httpx.Response,
 ) -> dict[str, Any]:
-    if response.status_code != 200:
+    if not (200 <= response.status_code < 300):
         global _iam_signing_hint_logged
         if (
             response.status_code in (401, 403)
@@ -129,8 +136,8 @@ def sp_api_post(
         "host": host,
         "content-type": "application/json",
     }
-    signed = _sign_headers("POST", url, headers, host)
     payload = json.dumps(body).encode("utf-8")
+    signed = _sign_headers("POST", url, headers, host, body=payload)
 
     try:
         with httpx.Client(timeout=timeout or SP_API_TIMEOUT_SECONDS) as client:
