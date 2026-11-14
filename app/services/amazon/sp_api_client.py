@@ -18,6 +18,7 @@ from app.services.amazon.amazon_credentials import sp_api_iam_signing_configured
 logger = logging.getLogger(__name__)
 
 SP_API_TIMEOUT_SECONDS = 45.0
+SP_API_REPORT_TIMEOUT_SECONDS = 120.0
 USER_AGENT = "SympleOne/1.0 (Language=Python)"
 _iam_signing_hint_logged = False
 
@@ -71,30 +72,12 @@ def _sign_headers(method: str, url: str, headers: dict[str, str], host: str) -> 
     return dict(aws_request.headers)
 
 
-def sp_api_get(
+def _sp_api_json_response(
     *,
-    host: str,
+    method: str,
     path: str,
-    query: dict[str, str],
-    access_token: str,
+    response: httpx.Response,
 ) -> dict[str, Any]:
-    """Perform a signed GET against the Selling Partner API."""
-    query_string = urlencode(query)
-    url = f"https://{host}{path}?{query_string}"
-    headers = {
-        "x-amz-access-token": access_token,
-        "user-agent": USER_AGENT,
-        "host": host,
-    }
-    signed = _sign_headers("GET", url, headers, host)
-
-    try:
-        with httpx.Client(timeout=SP_API_TIMEOUT_SECONDS) as client:
-            response = client.get(url, headers=signed)
-    except httpx.HTTPError as exc:
-        logger.warning("SP-API request failed: %s", type(exc).__name__)
-        raise SpApiRequestError("Amazon API is temporarily unavailable") from exc
-
     if response.status_code != 200:
         global _iam_signing_hint_logged
         if (
@@ -111,7 +94,8 @@ def sp_api_get(
             )
         detail = _extract_sp_api_error(response.text)
         logger.warning(
-            "SP-API GET %s failed status=%s body=%s",
+            "SP-API %s %s failed status=%s body=%s",
+            method,
             path,
             response.status_code,
             response.text[:500],
@@ -122,8 +106,68 @@ def sp_api_get(
     try:
         data = response.json()
     except ValueError as exc:
-        raise SpApiRequestError("Amazon sales data response was invalid") from exc
+        raise SpApiRequestError("Amazon API response was invalid") from exc
 
     if not isinstance(data, dict):
-        raise SpApiRequestError("Amazon sales data response was invalid")
+        raise SpApiRequestError("Amazon API response was invalid")
     return data
+
+
+def sp_api_post(
+    *,
+    host: str,
+    path: str,
+    body: dict[str, Any],
+    access_token: str,
+    timeout: float | None = None,
+) -> dict[str, Any]:
+    """Perform a signed POST against the Selling Partner API."""
+    url = f"https://{host}{path}"
+    headers = {
+        "x-amz-access-token": access_token,
+        "user-agent": USER_AGENT,
+        "host": host,
+        "content-type": "application/json",
+    }
+    signed = _sign_headers("POST", url, headers, host)
+    payload = json.dumps(body).encode("utf-8")
+
+    try:
+        with httpx.Client(timeout=timeout or SP_API_TIMEOUT_SECONDS) as client:
+            response = client.post(url, headers=signed, content=payload)
+    except httpx.HTTPError as exc:
+        logger.warning("SP-API POST request failed: %s", type(exc).__name__)
+        raise SpApiRequestError("Amazon API is temporarily unavailable") from exc
+
+    return _sp_api_json_response(method="POST", path=path, response=response)
+
+
+def sp_api_get(
+    *,
+    host: str,
+    path: str,
+    query: dict[str, str] | None = None,
+    access_token: str,
+    timeout: float | None = None,
+) -> dict[str, Any]:
+    """Perform a signed GET against the Selling Partner API."""
+    if query:
+        query_string = urlencode(query)
+        url = f"https://{host}{path}?{query_string}"
+    else:
+        url = f"https://{host}{path}"
+    headers = {
+        "x-amz-access-token": access_token,
+        "user-agent": USER_AGENT,
+        "host": host,
+    }
+    signed = _sign_headers("GET", url, headers, host)
+
+    try:
+        with httpx.Client(timeout=timeout or SP_API_TIMEOUT_SECONDS) as client:
+            response = client.get(url, headers=signed)
+    except httpx.HTTPError as exc:
+        logger.warning("SP-API request failed: %s", type(exc).__name__)
+        raise SpApiRequestError("Amazon API is temporarily unavailable") from exc
+
+    return _sp_api_json_response(method="GET", path=path, response=response)

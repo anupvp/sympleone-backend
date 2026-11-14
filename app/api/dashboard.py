@@ -1,6 +1,7 @@
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user
@@ -19,6 +20,10 @@ from app.schemas.dashboard import (
 from app.services.dashboard.account_health_service import build_account_health_for_user
 from app.services.dashboard.sales_trend_service import SalesTrendError, build_sales_trend_for_user
 from app.services.dashboard.alerts_service import build_dashboard_alerts
+from app.services.dashboard.export_report_service import (
+    DashboardExportError,
+    export_merchant_listings_report_for_user,
+)
 from app.services.dashboard.stats_service import DashboardStatsError, build_dashboard_stats_for_user
 
 logger = logging.getLogger(__name__)
@@ -111,6 +116,48 @@ def get_dashboard_stats(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Could not load dashboard stats from Amazon",
         ) from None
+
+
+@router.get("/export-report")
+def download_dashboard_report(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    accountId: str = Query(default="all"),
+    marketplaceId: str = Query(default="all"),
+    dateFrom: str | None = Query(default=None),
+    dateTo: str | None = Query(default=None),
+    sellerId: str | None = Query(default=None),
+) -> Response:
+    del accountId
+    try:
+        content, filename = export_merchant_listings_report_for_user(
+            db,
+            user,
+            marketplace_id=marketplaceId,
+            date_from=dateFrom,
+            date_to=dateTo,
+            seller=_dashboard_seller(user, db, sellerId),
+        )
+    except DashboardExportError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Failed to export dashboard report for user_id=%s", user.id)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Could not download report from Amazon",
+        ) from None
+
+    disposition = f'attachment; filename="{filename}"'
+    return Response(
+        content=content,
+        media_type="text/plain; charset=utf-8",
+        headers={"Content-Disposition": disposition},
+    )
 
 
 @router.get("/profitability", response_model=ProfitabilityOut)
