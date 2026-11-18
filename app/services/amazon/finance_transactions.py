@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, date, datetime, timedelta
+from dataclasses import dataclass
 from typing import Any
 
 from app.services.amazon.sp_api_client import sp_api_get
@@ -13,6 +14,12 @@ logger = logging.getLogger(__name__)
 
 TRANSACTIONS_PATH = "/finances/2024-06-19/transactions"
 _MAX_TRANSACTION_PAGES = 40
+
+
+@dataclass(frozen=True)
+class FinanceFetchResult:
+    transactions: list[dict[str, Any]]
+    truncated: bool
 
 
 def posted_after_from_start_date(d: date) -> str:
@@ -53,13 +60,13 @@ def _inclusive_date_range(start: date, end: date, posted: datetime) -> bool:
     return start <= day <= end
 
 
-def fetch_finance_transactions(
+def fetch_finance_transactions_result(
     *,
     access_token: str,
     marketplace_id: str,
     start: date,
     end: date,
-) -> list[dict[str, Any]]:
+) -> FinanceFetchResult:
     host = sp_api_host_for_marketplace(marketplace_id)
     query: dict[str, str] = {
         "marketplaceId": marketplace_id,
@@ -98,7 +105,8 @@ def fetch_finance_transactions(
         if not next_token:
             break
 
-    if pages >= _MAX_TRANSACTION_PAGES and next_token:
+    truncated = bool(pages >= _MAX_TRANSACTION_PAGES and next_token)
+    if truncated:
         logger.warning(
             "Finance transactions pagination truncated at %s rows for %s–%s",
             len(rows),
@@ -106,7 +114,22 @@ def fetch_finance_transactions(
             end,
         )
 
-    return rows
+    return FinanceFetchResult(transactions=rows, truncated=truncated)
+
+
+def fetch_finance_transactions(
+    *,
+    access_token: str,
+    marketplace_id: str,
+    start: date,
+    end: date,
+) -> list[dict[str, Any]]:
+    return fetch_finance_transactions_result(
+        access_token=access_token,
+        marketplace_id=marketplace_id,
+        start=start,
+        end=end,
+    ).transactions
 
 
 def sum_released_finance_net(
