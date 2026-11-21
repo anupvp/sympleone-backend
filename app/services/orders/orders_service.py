@@ -11,6 +11,13 @@ from app.services.amazon.lwa_token_service import LwaTokenExchangeError, refresh
 from app.services.amazon.orders_api import fetch_orders
 from app.services.amazon.seller_connection_service import find_active_connection_for_user
 from app.services.amazon.sp_api_client import SpApiRequestError
+from app.services.orders.fulfillment_type import (
+    classify_fulfillment_type,
+    fulfillment_label,
+    summarize_fulfillment_types,
+)
+
+
 class OrdersServiceError(Exception):
     pass
 
@@ -18,6 +25,7 @@ class OrdersServiceError(Exception):
 def _map_order(raw: dict) -> dict:
     total = raw.get("OrderTotal") or {}
     ship = raw.get("ShippingAddress") or {}
+    ftype = classify_fulfillment_type(raw)
     return {
         "amazon_order_id": str(raw.get("AmazonOrderId") or ""),
         "purchase_date": raw.get("PurchaseDate"),
@@ -30,6 +38,8 @@ def _map_order(raw: dict) -> dict:
         else None,
         "payment_method": raw.get("PaymentMethod"),
         "fulfillment_channel": raw.get("FulfillmentChannel"),
+        "fulfillment_type": ftype,
+        "fulfillment_label": fulfillment_label(ftype),
         "is_prime": bool(raw.get("IsPrime")),
         "sales_channel": raw.get("SalesChannel"),
         "ship_city": ship.get("City"),
@@ -37,6 +47,7 @@ def _map_order(raw: dict) -> dict:
         "easy_ship_status": raw.get("EasyShipShipmentStatus"),
         "number_of_items_shipped": int(raw.get("NumberOfItemsShipped") or 0),
         "number_of_items_unshipped": int(raw.get("NumberOfItemsUnshipped") or 0),
+        "shipment_service_level": raw.get("ShipmentServiceLevelCategory"),
     }
 
 
@@ -93,4 +104,5 @@ def list_orders_for_user(
         "orders": orders,
         "created_after": created_after_val,
         "created_before": created_before_val,
+        "summary": summarize_fulfillment_types(orders),
     }

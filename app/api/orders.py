@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.deps import get_current_user
 from app.database import get_db
 from app.models import User, UserKind
-from app.schemas.orders import OrdersListOut, OrderRowOut
+from app.schemas.orders import OrdersFulfillmentSummaryOut, OrdersListOut, OrderRowOut
 from app.services.dashboard.context import resolve_dashboard_seller
 from app.services.orders.orders_service import OrdersServiceError, list_orders_for_user
 
@@ -56,8 +56,15 @@ def get_orders(
             detail="Could not load orders from Amazon",
         ) from None
 
+    summary_raw = payload.get("summary") or {}
     return OrdersListOut(
         orders=[OrderRowOut(**row) for row in payload["orders"]],
         created_after=payload.get("created_after"),
         created_before=payload.get("created_before"),
+        summary=OrdersFulfillmentSummaryOut(
+            total=int(summary_raw.get("total") or 0),
+            fba=int(summary_raw.get("fba") or 0),
+            fbm=int(summary_raw.get("fbm") or 0),
+            self_ship=int(summary_raw.get("self_ship") or 0),
+        ),
     )
