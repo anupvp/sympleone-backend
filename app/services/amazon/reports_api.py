@@ -59,14 +59,17 @@ def create_report(
     report_type: str,
     data_start: str,
     data_end: str,
+    report_options: dict[str, str] | None = None,
 ) -> str:
     host = sp_api_host_for_marketplace(marketplace_id)
-    body = {
+    body: dict[str, Any] = {
         "marketplaceIds": [marketplace_id],
         "reportType": report_type,
         "dataStartTime": data_start,
         "dataEndTime": data_end,
     }
+    if report_options:
+        body["reportOptions"] = report_options
     data = sp_api_post(
         host=host,
         path=REPORTS_COLLECTION,

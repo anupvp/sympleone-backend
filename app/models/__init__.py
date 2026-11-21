@@ -11,6 +11,11 @@ from app.models.assignment import EmployeeSellerAssignment
 from app.models.seller_access_request import SellerAccessRequest, SellerAccessRequestStatus
 from app.models.group import Group, GroupMember, GroupMemberKind
 from app.models.rbac import Policy, Role, RolePolicy, UserRole
+from app.models.product_performance import (
+    ProductOrderMetric,
+    ProductPerformanceDaily,
+    ProductPerformanceSyncState,
+)
 from app.models.user import User, UserKind, UserStatus
 
 __all__ = [
@@ -32,4 +37,7 @@ __all__ = [
     "AmazonSellerAuthorization",
     "AmazonConnection",
     "AmazonConnectionStatus",
+    "ProductPerformanceDaily",
+    "ProductOrderMetric",
+    "ProductPerformanceSyncState",
 ]
