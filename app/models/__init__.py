@@ -11,6 +11,11 @@ from app.models.assignment import EmployeeSellerAssignment
 from app.models.seller_access_request import SellerAccessRequest, SellerAccessRequestStatus
 from app.models.group import Group, GroupMember, GroupMemberKind
 from app.models.rbac import Policy, Role, RolePolicy, UserRole
+from app.models.dashboard_orders import (
+    DashboardOrder,
+    DashboardOrderSyncState,
+    NormalizedOrderStatus,
+)
 from app.models.product_performance import (
     ProductOrderMetric,
     ProductPerformanceDaily,
@@ -40,4 +45,7 @@ __all__ = [
     "ProductPerformanceDaily",
     "ProductOrderMetric",
     "ProductPerformanceSyncState",
+    "DashboardOrder",
+    "DashboardOrderSyncState",
+    "NormalizedOrderStatus",
 ]

@@ -55,6 +55,7 @@ def fetch_orders(
     marketplace_id: str,
     created_after: str,
     created_before: str,
+    max_orders: int = 500,
 ) -> list[dict[str, Any]]:
     host = sp_api_host_for_marketplace(marketplace_id)
     created_before = normalize_created_before(created_before)
@@ -85,8 +86,12 @@ def fetch_orders(
         next_token = payload.get("NextToken")
         if not next_token:
             break
-        if len(orders) > 500:
-            logger.warning("Orders pagination truncated at %s rows", len(orders))
+        if len(orders) >= max_orders:
+            if next_token:
+                logger.warning("Orders pagination truncated at %s rows", len(orders))
             break
 
+    if len(orders) > max_orders:
+        orders = orders[:max_orders]
+        logger.warning("Orders list capped at %s rows", max_orders)
     return orders
