@@ -11,6 +11,19 @@ def test_fba_afn() -> None:
     assert classify_fulfillment_type({"FulfillmentChannel": "AFN"}) == FULFILLMENT_FBA
 
 
+def test_fba_afn_even_with_easy_ship_fields() -> None:
+    assert (
+        classify_fulfillment_type(
+            {
+                "FulfillmentChannel": "AFN",
+                "EasyShipShipmentStatus": "Delivered",
+                "ShipmentServiceLevelCategory": "EasyShip",
+            }
+        )
+        == FULFILLMENT_FBA
+    )
+
+
 def test_fbm_mfn() -> None:
     assert classify_fulfillment_type({"FulfillmentChannel": "MFN"}) == FULFILLMENT_FBM
 
