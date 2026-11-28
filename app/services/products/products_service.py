@@ -12,7 +12,7 @@ from app.services.amazon.fba_inventory_summaries import (
     fetch_inventory_summaries_paginated,
 )
 from app.services.amazon.listings_items import fetch_seller_listings
-from app.services.amazon.marketplace_resolver import normalize_marketplace_for_seller
+from app.services.amazon.listings_marketplace_probe import resolve_listings_marketplace_id
 from app.services.amazon.lwa_token_service import LwaTokenExchangeError, refresh_lwa_access_token
 from app.services.amazon.seller_connection_service import find_active_connection_for_user
 from app.services.amazon.sp_api_client import SpApiRequestError
@@ -117,9 +117,12 @@ def list_products_for_user(
             "Amazon authorization expired; reconnect your seller account"
         ) from exc
 
-    marketplace = normalize_marketplace_for_seller(access_token, marketplace_id)
-
     try:
+        marketplace = resolve_listings_marketplace_id(
+            access_token,
+            selling_partner_id=connection.selling_partner_id,
+            marketplace_id=marketplace_id,
+        )
         _, listing_items = fetch_seller_listings(
             access_token=access_token,
             selling_partner_id=connection.selling_partner_id,

@@ -20,6 +20,12 @@ _SP_API_HOSTS = (
 
 def _parse_participation_ids(data: dict[str, Any]) -> list[str]:
     payload = data.get("payload")
+    if isinstance(payload, dict):
+        nested = payload.get("marketplaceParticipations")
+        if isinstance(nested, list):
+            payload = nested
+        else:
+            return []
     if not isinstance(payload, list):
         return []
     ids: list[str] = []
@@ -53,7 +59,9 @@ def fetch_marketplace_participation_ids(
 
 
 def list_seller_marketplace_ids(access_token: str) -> list[str]:
-    """Try each SP-API region until participations are returned."""
+    """Query every SP-API region and merge marketplace participations."""
+    merged: list[str] = []
+    seen: set[str] = set()
     last_error: SpApiRequestError | None = None
     for host in _SP_API_HOSTS:
         try:
@@ -61,8 +69,10 @@ def list_seller_marketplace_ids(access_token: str) -> list[str]:
         except SpApiRequestError as exc:
             last_error = exc
             continue
-        if ids:
-            return ids
-    if last_error is not None:
-        logger.debug("Marketplace participations unavailable: %s", last_error)
-    return []
+        for mp in ids:
+            if mp not in seen:
+                seen.add(mp)
+                merged.append(mp)
+    if not merged and last_error is not None:
+        logger.warning("Marketplace participations unavailable: %s", last_error)
+    return merged

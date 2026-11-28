@@ -32,4 +32,7 @@ def normalize_marketplace_for_seller(
     if fallback and fallback in participations:
         return fallback
 
+    if requested and requested not in participations:
+        return participations[0]
+
     return participations[0]

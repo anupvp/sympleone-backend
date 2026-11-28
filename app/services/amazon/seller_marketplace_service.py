@@ -6,9 +6,10 @@ from app.core.secret_storage import decrypt_secret
 from app.models import User, UserKind
 from app.services.amazon.lwa_token_service import LwaTokenExchangeError, refresh_lwa_access_token
 from app.services.amazon.marketplace_labels import marketplace_label
+from app.services.amazon.listings_marketplace_probe import resolve_listings_marketplace_id
 from app.services.amazon.marketplace_participations import list_seller_marketplace_ids
-from app.services.amazon.marketplace_resolver import normalize_marketplace_for_seller
 from app.services.amazon.seller_connection_service import find_active_connection_for_user
+from app.services.amazon.sp_api_client import SpApiRequestError
 
 
 class SellerMarketplaceError(Exception):
@@ -39,7 +40,14 @@ def get_seller_marketplace_context(
         ) from exc
 
     participations = list_seller_marketplace_ids(access_token)
-    resolved = normalize_marketplace_for_seller(access_token, marketplace_id)
+    try:
+        resolved = resolve_listings_marketplace_id(
+            access_token,
+            selling_partner_id=connection.selling_partner_id,
+            marketplace_id=marketplace_id,
+        )
+    except SpApiRequestError as exc:
+        raise SellerMarketplaceError(str(exc)) from exc
     return {
         "selling_partner_id": connection.selling_partner_id,
         "marketplace_id": resolved,

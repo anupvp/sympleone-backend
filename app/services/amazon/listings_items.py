@@ -7,7 +7,7 @@ from datetime import UTC, date, datetime
 from typing import Any
 from urllib.parse import quote
 
-from app.services.amazon.sp_api_client import sp_api_get
+from app.services.amazon.sp_api_client import SpApiRequestError, sp_api_get
 from app.services.amazon.sp_api_endpoints import sp_api_host_for_marketplace
 
 logger = logging.getLogger(__name__)
@@ -60,7 +60,13 @@ def _item_is_buyable(item: dict[str, Any]) -> bool:
 
 def _normalize_listings_body(data: dict[str, Any]) -> tuple[int | None, str | None, list[dict[str, Any]]]:
     """SP-API may return fields at root or under payload."""
-    payload = data.get("payload") if isinstance(data.get("payload"), dict) else data
+    raw_payload = data.get("payload")
+    if isinstance(raw_payload, dict):
+        payload = raw_payload
+    elif isinstance(data, dict) and "items" in data:
+        payload = data
+    else:
+        return None, None, []
     if not isinstance(payload, dict):
         return None, None, []
 
@@ -83,6 +89,23 @@ def _normalize_listings_body(data: dict[str, Any]) -> tuple[int | None, str | No
     return total, next_token, [i for i in items if isinstance(i, dict)]
 
 
+def probe_seller_listings_access(
+    *,
+    access_token: str,
+    selling_partner_id: str,
+    marketplace_id: str,
+) -> None:
+    """Lightweight Listings Items request to verify marketplace registration."""
+    host = sp_api_host_for_marketplace(marketplace_id)
+    path = listings_items_path(selling_partner_id)
+    query = {
+        "marketplaceIds": marketplace_id,
+        "includedData": "summaries",
+        "pageSize": "1",
+    }
+    sp_api_get(host=host, path=path, query=query, access_token=access_token)
+
+
 def fetch_seller_listings(
     *,
     access_token: str,
@@ -90,6 +113,8 @@ def fetch_seller_listings(
     marketplace_id: str,
     page_size: int = 20,
     buyable_only: bool = False,
+    max_pages: int | None = None,
+    included_data: str = "summaries,attributes,fulfillmentAvailability,offers,issues",
 ) -> tuple[int, list[dict[str, Any]]]:
     """
     Paginate seller catalog listings. Returns total count (from API when available)
@@ -99,7 +124,7 @@ def fetch_seller_listings(
     path = listings_items_path(selling_partner_id)
     base_query: dict[str, str] = {
         "marketplaceIds": marketplace_id,
-        "includedData": "summaries,attributes,fulfillmentAvailability,offers,issues",
+        "includedData": included_data,
         "pageSize": str(max(1, min(page_size, 20))),
     }
     if buyable_only:
@@ -110,7 +135,8 @@ def fetch_seller_listings(
     next_token: str | None = None
     pages = 0
 
-    while pages < _MAX_LISTING_PAGES:
+    page_limit = max_pages if max_pages is not None else _MAX_LISTING_PAGES
+    while pages < page_limit:
         query = dict(base_query)
         if next_token:
             query["pageToken"] = next_token
