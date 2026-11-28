@@ -8,6 +8,7 @@ from app.config import settings
 from app.core.secret_storage import decrypt_secret
 from app.models import User, UserKind
 from app.services.amazon.lwa_token_service import LwaTokenExchangeError, refresh_lwa_access_token
+from app.services.amazon.marketplace_resolver import normalize_marketplace_for_seller
 from app.services.amazon.order_items_api import fetch_order_items
 from app.services.amazon.orders_api import fetch_order, fetch_orders
 from app.services.amazon.seller_connection_service import find_active_connection_for_user
@@ -100,10 +101,6 @@ def list_orders_for_user(
     if not created_after_val or not created_before_val:
         raise OrdersServiceError("CreatedAfter and CreatedBefore are required")
 
-    marketplace = (marketplace_id or "").strip()
-    if not marketplace or marketplace.lower() == "all":
-        marketplace = settings.amazon_default_marketplace_id
-
     try:
         refresh_token = decrypt_secret(connection.refresh_token_ciphertext)
         access_token = refresh_lwa_access_token(refresh_token)
@@ -111,6 +108,8 @@ def list_orders_for_user(
         raise OrdersServiceError(
             "Amazon authorization expired; reconnect your seller account"
         ) from exc
+
+    marketplace = normalize_marketplace_for_seller(access_token, marketplace_id)
 
     try:
         raw_orders = fetch_orders(
@@ -155,10 +154,6 @@ def get_order_detail_for_user(
             "Connect your Amazon seller account before viewing orders"
         )
 
-    marketplace = (marketplace_id or "").strip()
-    if not marketplace or marketplace.lower() == "all":
-        marketplace = settings.amazon_default_marketplace_id
-
     try:
         refresh_token = decrypt_secret(connection.refresh_token_ciphertext)
         access_token = refresh_lwa_access_token(refresh_token)
@@ -166,6 +161,8 @@ def get_order_detail_for_user(
         raise OrdersServiceError(
             "Amazon authorization expired; reconnect your seller account"
         ) from exc
+
+    marketplace = normalize_marketplace_for_seller(access_token, marketplace_id)
 
     try:
         raw = fetch_order(

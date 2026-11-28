@@ -6,13 +6,13 @@ from datetime import date
 
 from sqlalchemy.orm import Session
 
-from app.config import settings
 from app.core.secret_storage import decrypt_secret
 from app.models import User, UserKind
 from app.services.amazon.fba_inventory_summaries import (
     fetch_inventory_summaries_paginated,
 )
 from app.services.amazon.listings_items import fetch_seller_listings
+from app.services.amazon.marketplace_resolver import normalize_marketplace_for_seller
 from app.services.amazon.lwa_token_service import LwaTokenExchangeError, refresh_lwa_access_token
 from app.services.amazon.seller_connection_service import find_active_connection_for_user
 from app.services.amazon.sp_api_client import SpApiRequestError
@@ -109,10 +109,6 @@ def list_products_for_user(
             "Connect your Amazon seller account before viewing products"
         )
 
-    marketplace = (marketplace_id or "").strip()
-    if not marketplace or marketplace.lower() == "all":
-        marketplace = settings.amazon_default_marketplace_id
-
     try:
         refresh_token = decrypt_secret(connection.refresh_token_ciphertext)
         access_token = refresh_lwa_access_token(refresh_token)
@@ -120,6 +116,8 @@ def list_products_for_user(
         raise ProductsServiceError(
             "Amazon authorization expired; reconnect your seller account"
         ) from exc
+
+    marketplace = normalize_marketplace_for_seller(access_token, marketplace_id)
 
     try:
         _, listing_items = fetch_seller_listings(

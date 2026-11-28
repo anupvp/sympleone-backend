@@ -7,16 +7,23 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import (
     assert_user_may_start_amazon_connect,
+    get_current_user,
     get_db,
     get_optional_current_user,
 )
-from app.models import User
+from app.models import User, UserKind
 from app.schemas.amazon import (
     AmazonCallbackCompleteRequest,
     AmazonCallbackCompleteResponse,
     AmazonConnectRequest,
     AmazonConnectResponse,
     AmazonSellerNewAccountOut,
+    SellerMarketplaceContextOut,
+)
+from app.services.dashboard.context import resolve_dashboard_seller
+from app.services.amazon.seller_marketplace_service import (
+    SellerMarketplaceError,
+    get_seller_marketplace_context,
 )
 from app.services.amazon.seller_onboarding_service import establish_seller_session_after_oauth
 from app.services.amazon.oauth_redirect_urls import build_frontend_callback_handoff_url
@@ -200,6 +207,39 @@ def amazon_oauth_callback_complete(
             redirect_url=error_redirect_url(),
             success=False,
         )
+
+
+def _marketplace_seller(
+    user: User,
+    db: Session,
+    seller_id: str | None,
+) -> User | None:
+    if user.kind == UserKind.SELLER:
+        return None
+    return resolve_dashboard_seller(db, user, seller_id)
+
+
+@router.get("/marketplace-context", response_model=SellerMarketplaceContextOut)
+def amazon_marketplace_context(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    marketplaceId: str = Query(default="all"),
+    sellerId: str | None = Query(default=None),
+) -> SellerMarketplaceContextOut:
+    seller = _marketplace_seller(user, db, sellerId)
+    try:
+        payload = get_seller_marketplace_context(
+            db,
+            user,
+            marketplace_id=marketplaceId,
+            seller=seller,
+        )
+    except SellerMarketplaceError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    return SellerMarketplaceContextOut(**payload)
 
 
 @router.post("/connect", response_model=AmazonConnectResponse)

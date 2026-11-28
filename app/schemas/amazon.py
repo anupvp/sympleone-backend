@@ -28,6 +28,13 @@ class AmazonConnectResponse(BaseModel):
     authorization_url: str
 
 
+class SellerMarketplaceContextOut(BaseModel):
+    selling_partner_id: str
+    marketplace_id: str
+    marketplace_label: str
+    participating_marketplace_ids: list[str] = Field(default_factory=list)
+
+
 class AmazonCallbackCompleteRequest(BaseModel):
     spapi_oauth_code: str = Field(..., min_length=1)
     state: str = Field(..., min_length=1)
