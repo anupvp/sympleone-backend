@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
+from urllib.parse import quote
 
 from app.services.amazon.sp_api_client import sp_api_get
 from app.services.amazon.sp_api_endpoints import sp_api_host_for_marketplace
@@ -95,3 +96,25 @@ def fetch_orders(
         orders = orders[:max_orders]
         logger.warning("Orders list capped at %s rows", max_orders)
     return orders
+
+
+def order_path(order_id: str) -> str:
+    return f"{ORDERS_PATH}/{quote(order_id, safe='')}"
+
+
+def fetch_order(
+    *,
+    access_token: str,
+    marketplace_id: str,
+    order_id: str,
+) -> dict[str, Any] | None:
+    host = sp_api_host_for_marketplace(marketplace_id)
+    data = sp_api_get(
+        host=host,
+        path=order_path(order_id),
+        query=None,
+        access_token=access_token,
+    )
+    payload = data.get("payload") if isinstance(data.get("payload"), dict) else {}
+    order = payload.get("Order") if isinstance(payload.get("Order"), dict) else payload
+    return order if isinstance(order, dict) and order.get("AmazonOrderId") else None

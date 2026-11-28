@@ -6,9 +6,13 @@ from sqlalchemy.orm import Session
 from app.core.deps import get_current_user
 from app.database import get_db
 from app.models import User, UserKind
-from app.schemas.orders import OrdersFulfillmentSummaryOut, OrdersListOut, OrderRowOut
+from app.schemas.orders import OrderDetailOut, OrdersFulfillmentSummaryOut, OrdersListOut, OrderRowOut
 from app.services.dashboard.context import resolve_dashboard_seller
-from app.services.orders.orders_service import OrdersServiceError, list_orders_for_user
+from app.services.orders.orders_service import (
+    OrdersServiceError,
+    get_order_detail_for_user,
+    list_orders_for_user,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -68,3 +72,34 @@ def get_orders(
             self_ship=int(summary_raw.get("self_ship") or 0),
         ),
     )
+
+
+@router.get("/{amazon_order_id}", response_model=OrderDetailOut)
+def get_order_detail(
+    amazon_order_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    marketplace_id: str = Query(default="all", alias="marketplaceId"),
+    seller_id: str | None = Query(default=None, alias="sellerId"),
+) -> OrderDetailOut:
+    seller = _orders_seller(user, db, seller_id)
+    try:
+        payload = get_order_detail_for_user(
+            db,
+            user,
+            amazon_order_id=amazon_order_id,
+            marketplace_id=marketplace_id,
+            seller=seller,
+        )
+    except OrdersServiceError as exc:
+        msg = str(exc)
+        status_code = status.HTTP_404_NOT_FOUND if "not found" in msg.lower() else status.HTTP_400_BAD_REQUEST
+        raise HTTPException(status_code=status_code, detail=msg) from exc
+    except Exception:
+        logger.exception("Failed to load order detail for user_id=%s", user.id)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Could not load order from Amazon",
+        ) from None
+
+    return OrderDetailOut(**payload)

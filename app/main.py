@@ -13,6 +13,7 @@ from app.api import (
     legal_pages,
     orders,
     product_performance,
+    products,
     public_stats,
     reports,
     scope,
@@ -67,6 +68,7 @@ app.include_router(orders.router, prefix=api)
 app.include_router(reports.router, prefix=api)
 app.include_router(inventory.router, prefix=api)
 app.include_router(product_performance.router, prefix=api)
+app.include_router(products.router, prefix=api)
 app.include_router(dashboard_order_status.router, prefix=api)
 app.include_router(amazon.router, prefix=api)
 app.include_router(scope.router, prefix=api)

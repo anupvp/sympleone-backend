@@ -83,25 +83,27 @@ def _normalize_listings_body(data: dict[str, Any]) -> tuple[int | None, str | No
     return total, next_token, [i for i in items if isinstance(i, dict)]
 
 
-def fetch_buyable_listings(
+def fetch_seller_listings(
     *,
     access_token: str,
     selling_partner_id: str,
     marketplace_id: str,
     page_size: int = 20,
+    buyable_only: bool = False,
 ) -> tuple[int, list[dict[str, Any]]]:
     """
-    Paginate BUYABLE listings for the seller. Returns total count (from API when
-    available) and all fetched item rows.
+    Paginate seller catalog listings. Returns total count (from API when available)
+    and fetched item rows.
     """
     host = sp_api_host_for_marketplace(marketplace_id)
     path = listings_items_path(selling_partner_id)
     base_query: dict[str, str] = {
         "marketplaceIds": marketplace_id,
-        "includedData": "summaries",
-        "withStatus": "BUYABLE",
+        "includedData": "summaries,attributes,fulfillmentAvailability,offers,issues",
         "pageSize": str(max(1, min(page_size, 20))),
     }
+    if buyable_only:
+        base_query["withStatus"] = "BUYABLE"
 
     collected: list[dict[str, Any]] = []
     total_reported: int | None = None
@@ -123,8 +125,9 @@ def fetch_buyable_listings(
         if total_reported is None and total is not None:
             total_reported = total
         for item in batch:
-            if _item_is_buyable(item):
-                collected.append(item)
+            if buyable_only and not _item_is_buyable(item):
+                continue
+            collected.append(item)
 
         pages += 1
         if not next_token:
@@ -137,11 +140,29 @@ def fetch_buyable_listings(
             selling_partner_id[:8],
         )
 
-    if total_reported is not None:
+    if total_reported is not None and not buyable_only:
+        count = len(collected)
+    elif total_reported is not None:
         count = total_reported
     else:
         count = len(collected)
     return count, collected
+
+
+def fetch_buyable_listings(
+    *,
+    access_token: str,
+    selling_partner_id: str,
+    marketplace_id: str,
+    page_size: int = 20,
+) -> tuple[int, list[dict[str, Any]]]:
+    return fetch_seller_listings(
+        access_token=access_token,
+        selling_partner_id=selling_partner_id,
+        marketplace_id=marketplace_id,
+        page_size=page_size,
+        buyable_only=True,
+    )
 
 
 def count_listings_created_between(

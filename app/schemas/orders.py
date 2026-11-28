@@ -37,3 +37,23 @@ class OrdersListOut(BaseModel):
     created_after: str | None = None
     created_before: str | None = None
     summary: OrdersFulfillmentSummaryOut = Field(default_factory=OrdersFulfillmentSummaryOut)
+
+
+class OrderItemOut(BaseModel):
+    order_item_id: str = ""
+    asin: str | None = None
+    seller_sku: str | None = None
+    title: str | None = None
+    quantity_ordered: int = 0
+    quantity_shipped: int = 0
+    item_price: OrderMoneyOut | None = None
+
+
+class OrderDetailOut(OrderRowOut):
+    buyer_name: str | None = None
+    ship_address_line1: str | None = None
+    ship_address_line2: str | None = None
+    ship_postal_code: str | None = None
+    ship_country: str | None = None
+    last_update_date: str | None = None
+    items: list[OrderItemOut] = Field(default_factory=list)
